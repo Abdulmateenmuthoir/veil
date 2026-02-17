@@ -51,6 +51,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
+        <link rel="icon" href="/veil-logo.svg" type="image/svg+xml" />
         <script dangerouslySetInnerHTML={{ __html: suppressExtensionErrors }} />
       </head>
       <body

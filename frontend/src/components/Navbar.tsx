@@ -1,7 +1,7 @@
 "use client";
 
 import { useAccount, useConnect, useDisconnect } from "@starknet-react/core";
-import { Shield, LogOut, Wallet } from "lucide-react";
+import { LogOut, Wallet } from "lucide-react";
 
 export default function Navbar() {
   const { address, isConnected } = useAccount();
@@ -17,9 +17,7 @@ export default function Navbar() {
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
-            <Shield className="w-4 h-4 text-accent" />
-          </div>
+          <img src="/veil-logo.svg" alt="Veil" className="w-8 h-8 rounded-lg" />
           <span className="text-lg font-semibold tracking-tight">Veil</span>
           <span className="text-xs text-muted px-2 py-0.5 rounded-full border border-border">
             Sepolia
