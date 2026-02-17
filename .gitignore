@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+contracts/target/
+crypto/dist/
+
+# Environment files (contain secrets)
+.env
+scripts/.env
+scripts/deployed.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Next.js (handled by frontend/.gitignore)
+
+# Scarb binaries
+scarb/
+
+# Claude
+.claude/
+
+# Debug
+*.log
+npm-debug.log*
