@@ -1,0 +1,11 @@
+{
+  "name": "veil-scripts",
+  "type": "module",
+  "scripts": {
+    "deploy": "node deploy.mjs"
+  },
+  "dependencies": {
+    "starknet": "^9.2.1",
+    "dotenv": "^16.4.7"
+  }
+}

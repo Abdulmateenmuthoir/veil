@@ -1,0 +1,21 @@
+{
+  "name": "@veil/crypto",
+  "version": "0.1.0",
+  "description": "Client-side ElGamal encryption over the Stark curve for Veil protocol",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@noble/curves": "^1.8.1",
+    "@noble/hashes": "^1.7.1",
+    "@scure/starknet": "^2.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
