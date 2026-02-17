@@ -205,9 +205,7 @@ export default function Home() {
         <Navbar />
         <main className="min-h-screen flex items-center justify-center px-4">
           <div className="text-center max-w-md">
-            <div className="w-20 h-20 rounded-3xl bg-accent/10 flex items-center justify-center mx-auto mb-6">
-              <Shield className="w-10 h-10 text-accent" />
-            </div>
+            <img src="/veil-logo.svg" alt="Veil" className="w-20 h-20 rounded-3xl mx-auto mb-6" />
             <h1 className="text-3xl font-bold mb-3">
               <span className="gradient-text">Private Transactions</span>
               <br />
@@ -258,9 +256,7 @@ export default function Home() {
         <Navbar />
         <main className="min-h-screen flex items-center justify-center px-4 pt-20">
           <div className="glow-card rounded-2xl bg-card border border-border p-8 max-w-lg mx-auto text-center">
-            <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-4">
-              <Shield className="w-8 h-8 text-accent" />
-            </div>
+            <img src="/veil-logo.svg" alt="Veil" className="w-16 h-16 rounded-2xl mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">Register On-Chain</h2>
             <p className="text-muted text-sm leading-relaxed mb-6 max-w-sm mx-auto">
               Your encryption keypair is ready. Register your public key on the

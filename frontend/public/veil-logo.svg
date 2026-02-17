@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <defs>
+    <linearGradient id="veilGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7C3AED;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4F46E5;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#A78BFA;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#7C3AED;stop-opacity:0" />
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="400" height="400" rx="32" fill="#0A0A0F"/>
+  
+  <!-- Subtle grid pattern -->
+  <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+    <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#1a1a2e" stroke-width="0.5"/>
+  </pattern>
+  <rect width="400" height="400" rx="32" fill="url(#grid)" opacity="0.3"/>
+  
+  <!-- Outer shield/veil shape -->
+  <path d="M 200 60 
+           C 280 60, 320 100, 320 140 
+           L 320 220 
+           C 320 280, 260 340, 200 360 
+           C 140 340, 80 280, 80 220 
+           L 80 140 
+           C 80 100, 120 60, 200 60 Z" 
+        fill="none" 
+        stroke="url(#veilGrad)" 
+        stroke-width="2.5" 
+        opacity="0.6"/>
+  
+  <!-- Inner glow fill -->
+  <path d="M 200 60 
+           C 280 60, 320 100, 320 140 
+           L 320 220 
+           C 320 280, 260 340, 200 360 
+           C 140 340, 80 280, 80 220 
+           L 80 140 
+           C 80 100, 120 60, 200 60 Z" 
+        fill="url(#shieldGrad)" 
+        opacity="0.15"/>
+
+  <!-- Stylized V mark -->
+  <g filter="url(#glow)">
+    <path d="M 140 130 
+             L 200 290 
+             L 260 130" 
+          fill="none" 
+          stroke="url(#veilGrad)" 
+          stroke-width="8" 
+          stroke-linecap="round" 
+          stroke-linejoin="round"/>
+  </g>
+  
+  <!-- Privacy lines / veil effect across the V -->
+  <g opacity="0.25">
+    <line x1="120" y1="170" x2="280" y2="170" stroke="#A78BFA" stroke-width="1"/>
+    <line x1="130" y1="195" x2="270" y2="195" stroke="#A78BFA" stroke-width="1"/>
+    <line x1="140" y1="220" x2="260" y2="220" stroke="#A78BFA" stroke-width="1"/>
+    <line x1="155" y1="245" x2="245" y2="245" stroke="#A78BFA" stroke-width="1"/>
+    <line x1="170" y1="270" x2="230" y2="270" stroke="#A78BFA" stroke-width="1"/>
+  </g>
+  
+  <!-- Small lock/keyhole accent at top of shield -->
+  <circle cx="200" cy="95" r="8" fill="none" stroke="#7C3AED" stroke-width="1.5" opacity="0.7"/>
+  <rect x="196" y="95" width="8" height="12" rx="2" fill="#7C3AED" opacity="0.7"/>
+</svg>
