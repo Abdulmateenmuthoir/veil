@@ -9,6 +9,7 @@ crypto/dist/
 .env
 scripts/.env
 scripts/deployed.json
+scripts/e2e-keys.json
 
 # OS
 .DS_Store
