@@ -1,5 +1,5 @@
 /** Contract addresses — update after deploying to Sepolia. */
-export const SHIELDED_POOL_ADDRESS = "0x1d150b2948ac59664a9d45b1e0d27cd2d04c8836e41dbbd49fd47d8694cc4b4";
+export const SHIELDED_POOL_ADDRESS = "0x7481f260a4700bb3050ea8db1821b4308196e60793e038f81a603fb23876600";
 export const ERC20_TOKEN_ADDRESS = "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"; // Sepolia STRK
 
 /** LocalStorage keys. */
