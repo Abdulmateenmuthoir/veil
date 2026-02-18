@@ -7,9 +7,16 @@ import Modal from "./Modal";
 interface WithdrawModalProps {
   onClose: () => void;
   onSubmit: (amount: string) => Promise<void>;
+  balance: bigint;
 }
 
-export default function WithdrawModal({ onClose, onSubmit }: WithdrawModalProps) {
+function formatWei(wei: bigint): string {
+  const whole = wei / 10n ** 18n;
+  const frac = (wei % 10n ** 18n).toString().padStart(18, "0").slice(0, 4);
+  return `${whole}.${frac}`;
+}
+
+export default function WithdrawModal({ onClose, onSubmit, balance }: WithdrawModalProps) {
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -17,6 +24,14 @@ export default function WithdrawModal({ onClose, onSubmit }: WithdrawModalProps)
   const handleSubmit = async () => {
     if (!amount || parseFloat(amount) <= 0) {
       setError("Enter a valid amount");
+      return;
+    }
+    // Parse and validate against available balance before submitting.
+    const [whole, frac = ""] = amount.split(".");
+    const fracPadded = frac.padEnd(18, "0").slice(0, 18);
+    const wei = BigInt(whole || "0") * 10n ** 18n + BigInt(fracPadded);
+    if (wei > balance) {
+      setError("Amount exceeds your shielded balance");
       return;
     }
     setError("");
@@ -35,7 +50,12 @@ export default function WithdrawModal({ onClose, onSubmit }: WithdrawModalProps)
     <Modal title="Withdraw" onClose={onClose}>
       <div className="space-y-4">
         <div>
-          <label className="text-sm text-muted mb-1.5 block">Amount</label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-sm text-muted">Amount</label>
+            <span className="text-xs text-muted">
+              Available: <span className="text-foreground font-mono">{formatWei(balance)} STRK</span>
+            </span>
+          </div>
           <div className="relative">
             <input
               type="number"
@@ -44,9 +64,16 @@ export default function WithdrawModal({ onClose, onSubmit }: WithdrawModalProps)
               placeholder="0.0"
               className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-accent focus:outline-none text-lg font-mono placeholder:text-muted/40"
             />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted">
-              STRK
-            </span>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setAmount(formatWei(balance))}
+                className="text-xs text-accent hover:text-accent-hover font-medium"
+              >
+                MAX
+              </button>
+              <span className="text-sm text-muted">STRK</span>
+            </div>
           </div>
         </div>
 

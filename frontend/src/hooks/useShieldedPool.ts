@@ -56,11 +56,11 @@ export function useShieldedPool() {
   const register = useCallback(
     async (pkX: bigint, pkY: bigint) => {
       if (!account) throw new Error("Wallet not connected");
-      const result = await account.execute({
+      const result = await account.execute([{
         contractAddress: SHIELDED_POOL_ADDRESS,
         entrypoint: "register",
         calldata: [toHex(pkX), toHex(pkY)],
-      });
+      }]);
       await provider.waitForTransaction(result.transaction_hash);
       return result.transaction_hash;
     },
@@ -108,7 +108,7 @@ export function useShieldedPool() {
       nullifier: bigint,
     ) => {
       if (!account) throw new Error("Wallet not connected");
-      const result = await account.execute({
+      const result = await account.execute([{
         contractAddress: SHIELDED_POOL_ADDRESS,
         entrypoint: "transfer",
         calldata: [
@@ -125,7 +125,7 @@ export function useShieldedPool() {
           toHex(proofHash),
           toHex(nullifier),
         ],
-      });
+      }]);
       await provider.waitForTransaction(result.transaction_hash);
       return result.transaction_hash;
     },
@@ -140,7 +140,7 @@ export function useShieldedPool() {
       nullifier: bigint,
     ) => {
       if (!account) throw new Error("Wallet not connected");
-      const result = await account.execute({
+      const result = await account.execute([{
         contractAddress: SHIELDED_POOL_ADDRESS,
         entrypoint: "withdraw",
         calldata: [
@@ -152,7 +152,7 @@ export function useShieldedPool() {
           toHex(proofHash),
           toHex(nullifier),
         ],
-      });
+      }]);
       await provider.waitForTransaction(result.transaction_hash);
       return result.transaction_hash;
     },
