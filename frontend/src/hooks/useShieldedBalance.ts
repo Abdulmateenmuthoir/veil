@@ -9,6 +9,10 @@ const G = Point.BASE;
 const CURVE_ORDER =
   0x0800000000000010ffffffffffffffffb781126dcae7b2321e66a241adc64d2fn;
 
+// STRK has 18 decimals. Encrypting raw wei is impossible for BSGS (max ~2^32).
+// We encode balances in gwei (10^9 wei) so BSGS handles up to ~4.3 STRK.
+const BALANCE_SCALE = 10n ** 9n;
+
 function mod(n: bigint): bigint {
   const r = n % CURVE_ORDER;
   return r < 0n ? r + CURVE_ORDER : r;
@@ -31,13 +35,15 @@ export function useShieldedBalance(keys: ElGamalKeys | null) {
   const [decryptedBalance, setDecryptedBalance] = useState<bigint>(0n);
   const [loading, setLoading] = useState(false);
 
-  // Encrypt an amount under the user's public key.
+  // Encrypt an amount (in wei) under the user's public key.
+  // Internally encodes as gwei (amount / BALANCE_SCALE) so BSGS can decrypt.
   const encryptAmount = useCallback(
-    (amount: bigint) => {
+    (amountWei: bigint) => {
       if (!keys) throw new Error("No keys");
       const r = randomScalar();
       const c1 = G.multiply(r);
-      const mG = amount === 0n ? ZERO : G.multiply(amount);
+      const amountGwei = amountWei / BALANCE_SCALE;
+      const mG = amountGwei === 0n ? ZERO : G.multiply(amountGwei);
       const rPK = keys.publicKeyPoint.multiply(r);
       const c2 = mG.add(rPK);
       return { c1, c2 };
@@ -167,8 +173,9 @@ export function useShieldedBalance(keys: ElGamalKeys | null) {
             };
         setEncryptedBalance(ct);
 
+        // decryptBalance returns gwei units; scale back to wei for display.
         const dec = decryptBalance(ct);
-        setDecryptedBalance(dec ?? 0n);
+        setDecryptedBalance(dec !== null ? dec * BALANCE_SCALE : 0n);
       } finally {
         setLoading(false);
       }
@@ -180,8 +187,9 @@ export function useShieldedBalance(keys: ElGamalKeys | null) {
   const updateLocal = useCallback(
     (newCt: Ciphertext) => {
       setEncryptedBalance(newCt);
+      // decryptBalance returns gwei units; scale back to wei for display.
       const dec = decryptBalance(newCt);
-      setDecryptedBalance(dec ?? 0n);
+      setDecryptedBalance(dec !== null ? dec * BALANCE_SCALE : 0n);
     },
     [decryptBalance],
   );

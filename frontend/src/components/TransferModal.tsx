@@ -7,9 +7,16 @@ import Modal from "./Modal";
 interface TransferModalProps {
   onClose: () => void;
   onSubmit: (recipientPkX: string, recipientPkY: string, amount: string) => Promise<void>;
+  balance: bigint;
 }
 
-export default function TransferModal({ onClose, onSubmit }: TransferModalProps) {
+function formatWei(wei: bigint): string {
+  const whole = wei / 10n ** 18n;
+  const frac = (wei % 10n ** 18n).toString().padStart(18, "0").slice(0, 4);
+  return `${whole}.${frac}`;
+}
+
+export default function TransferModal({ onClose, onSubmit, balance }: TransferModalProps) {
   const [recipientPkX, setRecipientPkX] = useState("");
   const [recipientPkY, setRecipientPkY] = useState("");
   const [amount, setAmount] = useState("");
@@ -23,6 +30,13 @@ export default function TransferModal({ onClose, onSubmit }: TransferModalProps)
     }
     if (!amount || parseFloat(amount) <= 0) {
       setError("Enter a valid amount");
+      return;
+    }
+    const [whole, frac = ""] = amount.split(".");
+    const fracPadded = frac.padEnd(18, "0").slice(0, 18);
+    const wei = BigInt(whole || "0") * 10n ** 18n + BigInt(fracPadded);
+    if (wei > balance) {
+      setError("Amount exceeds your shielded balance");
       return;
     }
     setError("");
@@ -67,7 +81,12 @@ export default function TransferModal({ onClose, onSubmit }: TransferModalProps)
         </div>
 
         <div>
-          <label className="text-sm text-muted mb-1.5 block">Amount</label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-sm text-muted">Amount</label>
+            <span className="text-xs text-muted">
+              Available: <span className="text-foreground font-mono">{formatWei(balance)} STRK</span>
+            </span>
+          </div>
           <div className="relative">
             <input
               type="number"
@@ -76,9 +95,16 @@ export default function TransferModal({ onClose, onSubmit }: TransferModalProps)
               placeholder="0.0"
               className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-accent focus:outline-none text-lg font-mono placeholder:text-muted/40"
             />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted">
-              STRK
-            </span>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setAmount(formatWei(balance))}
+                className="text-xs text-accent hover:text-accent-hover font-medium"
+              >
+                MAX
+              </button>
+              <span className="text-sm text-muted">STRK</span>
+            </div>
           </div>
         </div>
 

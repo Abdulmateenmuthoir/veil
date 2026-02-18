@@ -40,6 +40,7 @@ export default function Home() {
   const [registered, setRegistered] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [regChecked, setRegChecked] = useState(false);
+  const [regError, setRegError] = useState<string | null>(null);
 
   // Check registration status + sync balance when keys are available.
   useEffect(() => {
@@ -100,17 +101,31 @@ export default function Home() {
   const handleRegister = useCallback(async () => {
     if (!keys) return;
     setRegistering(true);
+    setRegError(null);
     try {
       await register(keys.publicKey.x, keys.publicKey.y);
       setRegistered(true);
       await refreshBalance();
     } catch (err) {
       console.error("Registration failed:", err);
-      throw err;
+      // Transaction may have landed on-chain even if waitForTransaction threw.
+      // Re-check registration status before showing the error.
+      try {
+        const isReg = await checkRegistered(keys.publicKey.x, keys.publicKey.y);
+        if (isReg) {
+          setRegistered(true);
+          await refreshBalance();
+          return;
+        }
+      } catch {
+        // ignore secondary check failure
+      }
+      const msg = err instanceof Error ? err.message : String(err);
+      setRegError(msg);
     } finally {
       setRegistering(false);
     }
-  }, [keys, register, refreshBalance]);
+  }, [keys, register, checkRegistered, refreshBalance]);
 
   const handleDeposit = useCallback(
     async (amount: string) => {
@@ -131,6 +146,7 @@ export default function Home() {
     async (amount: string) => {
       if (!keys) throw new Error("Keys not set up");
       const wei = parseEther(amount);
+      if (wei > decryptedBalance) throw new Error("Amount exceeds shielded balance");
       const nullifier = nextNullifier(keys.privateKey, "withdraw");
       const proofHash = nextProofHash(keys.privateKey, decryptedBalance, wei, nullifier);
       const { newBalance, serialized } = computeWithdraw(wei);
@@ -158,8 +174,19 @@ export default function Home() {
     async (recipientPkX: string, recipientPkY: string, amount: string) => {
       if (!keys) throw new Error("Keys not set up");
       const wei = parseEther(amount);
-      const rpkX = BigInt(recipientPkX);
-      const rpkY = BigInt(recipientPkY);
+      if (wei > decryptedBalance) throw new Error("Amount exceeds shielded balance");
+
+      let rpkX: bigint, rpkY: bigint;
+      try {
+        rpkX = BigInt(recipientPkX);
+        rpkY = BigInt(recipientPkY);
+      } catch {
+        throw new Error("Invalid recipient public key format");
+      }
+
+      // Verify recipient is registered before spending gas.
+      const isRecipientReg = await checkRegistered(rpkX, rpkY);
+      if (!isRecipientReg) throw new Error("Recipient is not registered on Veil");
 
       // Fetch recipient's current on-chain balance so we add to it.
       const recipientBal = await fetchBalance(rpkX, rpkY);
@@ -187,6 +214,7 @@ export default function Home() {
       decryptedBalance,
       computeTransfer,
       transfer,
+      checkRegistered,
       fetchBalance,
       updateLocal,
       addTx,
@@ -266,6 +294,12 @@ export default function Home() {
 
             <KeyInfo keys={keys} onClear={clearKeys} />
 
+            {regError && (
+              <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400 text-left break-all">
+                <span className="font-medium">Registration failed: </span>{regError}
+              </div>
+            )}
+
             <button
               onClick={handleRegister}
               disabled={registering}
@@ -312,6 +346,7 @@ export default function Home() {
             onWithdraw={handleWithdraw}
             onTransfer={handleTransfer}
             disabled={!keys}
+            shieldedBalance={decryptedBalance}
           />
 
           <KeyInfo keys={keys} onClear={clearKeys} />

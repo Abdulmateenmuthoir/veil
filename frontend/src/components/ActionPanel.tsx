@@ -13,6 +13,7 @@ interface ActionPanelProps {
   onWithdraw: (amount: string) => Promise<void>;
   onTransfer: (recipientPkX: string, recipientPkY: string, amount: string) => Promise<void>;
   disabled: boolean;
+  shieldedBalance: bigint;
 }
 
 export default function ActionPanel({
@@ -20,6 +21,7 @@ export default function ActionPanel({
   onWithdraw,
   onTransfer,
   disabled,
+  shieldedBalance,
 }: ActionPanelProps) {
   const [activeModal, setActiveModal] = useState<ModalType>(null);
 
@@ -75,12 +77,14 @@ export default function ActionPanel({
         <WithdrawModal
           onClose={() => setActiveModal(null)}
           onSubmit={onWithdraw}
+          balance={shieldedBalance}
         />
       )}
       {activeModal === "transfer" && (
         <TransferModal
           onClose={() => setActiveModal(null)}
           onSubmit={onTransfer}
+          balance={shieldedBalance}
         />
       )}
     </>
