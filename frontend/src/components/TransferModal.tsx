@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, AtSign, Key } from "lucide-react";
 import Modal from "./Modal";
+import { useVeilName, validateVeilName } from "@/hooks/useVeilName";
 
 interface TransferModalProps {
   onClose: () => void;
@@ -17,17 +18,16 @@ function formatWei(wei: bigint): string {
 }
 
 export default function TransferModal({ onClose, onSubmit, balance }: TransferModalProps) {
-  const [recipientPkX, setRecipientPkX] = useState("");
-  const [recipientPkY, setRecipientPkY] = useState("");
+  const [useVNS, setUseVNS] = useState(true);
+  const [recipient, setRecipient] = useState(""); // .veil name (without suffix) or pk_x
+  const [recipientPkY, setRecipientPkY] = useState(""); // only used in raw key mode
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const { resolveName } = useVeilName();
+
   const handleSubmit = async () => {
-    if (!recipientPkX || !recipientPkY) {
-      setError("Enter recipient's public key");
-      return;
-    }
     if (!amount || parseFloat(amount) <= 0) {
       setError("Enter a valid amount");
       return;
@@ -39,10 +39,40 @@ export default function TransferModal({ onClose, onSubmit, balance }: TransferMo
       setError("Amount exceeds your shielded balance");
       return;
     }
+
     setError("");
     setLoading(true);
     try {
-      await onSubmit(recipientPkX, recipientPkY, amount);
+      let pkX: string;
+      let pkY: string;
+
+      if (useVNS) {
+        // Strip ".veil" suffix if the user typed it.
+        const name = recipient.replace(/\.veil$/i, "").trim();
+        if (!name || !validateVeilName(name)) {
+          setError("Enter a valid .veil name (3–31 chars, lowercase alphanumeric + hyphens)");
+          setLoading(false);
+          return;
+        }
+        const resolved = await resolveName(name);
+        if (!resolved) {
+          setError(`"${name}.veil" is not registered`);
+          setLoading(false);
+          return;
+        }
+        pkX = "0x" + resolved.pkX.toString(16);
+        pkY = "0x" + resolved.pkY.toString(16);
+      } else {
+        if (!recipient || !recipientPkY) {
+          setError("Enter recipient's public key (X and Y)");
+          setLoading(false);
+          return;
+        }
+        pkX = recipient;
+        pkY = recipientPkY;
+      }
+
+      await onSubmit(pkX, pkY, amount);
       onClose();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Transaction failed");
@@ -54,31 +84,77 @@ export default function TransferModal({ onClose, onSubmit, balance }: TransferMo
   return (
     <Modal title="Private Transfer" onClose={onClose}>
       <div className="space-y-4">
-        <div>
-          <label className="text-sm text-muted mb-1.5 block">
-            Recipient Public Key (X)
-          </label>
-          <input
-            type="text"
-            value={recipientPkX}
-            onChange={(e) => setRecipientPkX(e.target.value)}
-            placeholder="0x..."
-            className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-accent focus:outline-none text-sm font-mono placeholder:text-muted/40"
-          />
+        {/* Mode toggle */}
+        <div className="flex rounded-xl overflow-hidden border border-border text-sm">
+          <button
+            type="button"
+            onClick={() => { setUseVNS(true); setError(""); }}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 transition-colors ${
+              useVNS ? "bg-accent text-white" : "text-muted hover:text-foreground"
+            }`}
+          >
+            <AtSign className="w-3.5 h-3.5" />
+            .veil name
+          </button>
+          <button
+            type="button"
+            onClick={() => { setUseVNS(false); setError(""); }}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 transition-colors ${
+              !useVNS ? "bg-accent text-white" : "text-muted hover:text-foreground"
+            }`}
+          >
+            <Key className="w-3.5 h-3.5" />
+            Raw key
+          </button>
         </div>
 
-        <div>
-          <label className="text-sm text-muted mb-1.5 block">
-            Recipient Public Key (Y)
-          </label>
-          <input
-            type="text"
-            value={recipientPkY}
-            onChange={(e) => setRecipientPkY(e.target.value)}
-            placeholder="0x..."
-            className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-accent focus:outline-none text-sm font-mono placeholder:text-muted/40"
-          />
-        </div>
+        {useVNS ? (
+          <div>
+            <label className="text-sm text-muted mb-1.5 block">Recipient .veil name</label>
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                <AtSign className="w-4 h-4 text-muted" />
+              </div>
+              <input
+                type="text"
+                value={recipient}
+                onChange={(e) => setRecipient(e.target.value.toLowerCase())}
+                placeholder="alice"
+                className="w-full pl-10 pr-16 py-3 rounded-xl bg-background border border-border focus:border-accent focus:outline-none text-sm font-mono placeholder:text-muted/40"
+              />
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted font-mono">
+                .veil
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div>
+              <label className="text-sm text-muted mb-1.5 block">
+                Recipient Public Key (X)
+              </label>
+              <input
+                type="text"
+                value={recipient}
+                onChange={(e) => setRecipient(e.target.value)}
+                placeholder="0x..."
+                className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-accent focus:outline-none text-sm font-mono placeholder:text-muted/40"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted mb-1.5 block">
+                Recipient Public Key (Y)
+              </label>
+              <input
+                type="text"
+                value={recipientPkY}
+                onChange={(e) => setRecipientPkY(e.target.value)}
+                placeholder="0x..."
+                className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-accent focus:outline-none text-sm font-mono placeholder:text-muted/40"
+              />
+            </div>
+          </>
+        )}
 
         <div>
           <div className="flex items-center justify-between mb-1.5">
@@ -127,7 +203,7 @@ export default function TransferModal({ onClose, onSubmit, balance }: TransferMo
 
         <button
           onClick={handleSubmit}
-          disabled={loading || !amount || !recipientPkX || !recipientPkY}
+          disabled={loading || !amount || !recipient || (!useVNS && !recipientPkY)}
           className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-accent hover:bg-accent-hover text-white font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {loading ? (
