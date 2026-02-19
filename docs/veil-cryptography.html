@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Veil Protocol — Cryptographic Specification</title>
+<script>
+MathJax = {
+  tex: {
+    inlineMath: [['$', '$']],
+    displayMath: [['$$', '$$']],
+    macros: {
+      E: '\\mathbb{E}',
+      F: '\\mathbb{F}',
+      Z: '\\mathbb{Z}',
+      G: '\\mathbb{G}',
+      Enc: '\\mathcal{E}',
+      Dec: '\\mathcal{D}',
+      Cont: '\\mathcal{C}',
+      Prot: '\\Pi',
+      DLOG: '\\operatorname{DLOG}',
+      BSGS: '\\operatorname{BSGS}',
+      O: '\\mathcal{O}'
+    }
+  },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --accent: #7C3AED;
+    --accent-light: #A78BFA;
+    --bg: #ffffff;
+    --text: #1a1a2e;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --card: #f9fafb;
+    --protocol-bg: #f5f3ff;
+    --protocol-border: #7C3AED;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    line-height: 1.7;
+    font-size: 11pt;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 40px 32px;
+  }
+
+  @media print {
+    body { padding: 0; max-width: 100%; font-size: 10pt; }
+    .page-break { page-break-before: always; }
+    .no-print { display: none; }
+    .protocol-box { break-inside: avoid; }
+  }
+
+  /* Title page */
+  .title-page {
+    text-align: center;
+    padding: 80px 0 40px;
+  }
+  .title-page h1 {
+    font-size: 2.8em;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+  }
+  .title-page .subtitle {
+    font-size: 1.4em;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 20px;
+  }
+  .title-page .desc {
+    font-size: 1.05em;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .title-page .meta {
+    font-size: 0.9em;
+    color: var(--muted);
+    margin-top: 24px;
+  }
+
+  /* Table of contents */
+  .toc {
+    padding: 24px 0;
+    margin: 24px 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .toc h2 {
+    font-size: 1.2em;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  .toc ol {
+    padding-left: 24px;
+    color: var(--text);
+  }
+  .toc li {
+    margin-bottom: 4px;
+    font-size: 0.95em;
+  }
+  .toc a {
+    color: var(--text);
+    text-decoration: none;
+  }
+  .toc a:hover { color: var(--accent); }
+
+  /* Sections */
+  h2 {
+    font-size: 1.5em;
+    font-weight: 700;
+    color: var(--accent);
+    margin-top: 40px;
+    margin-bottom: 16px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--accent);
+  }
+  h3 {
+    font-size: 1.15em;
+    font-weight: 600;
+    color: var(--text);
+    margin-top: 24px;
+    margin-bottom: 10px;
+  }
+
+  p { margin-bottom: 12px; }
+
+  /* Protocol boxes */
+  .protocol-box {
+    background: var(--protocol-bg);
+    border: 1.5px solid var(--protocol-border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 20px 0;
+  }
+  .protocol-box .box-title {
+    font-weight: 700;
+    font-size: 1.05em;
+    color: var(--accent);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(124, 58, 237, 0.2);
+  }
+
+  /* Definition box */
+  .def-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+
+  /* Lists */
+  ul, ol { padding-left: 24px; margin-bottom: 12px; }
+  li { margin-bottom: 4px; }
+
+  /* Code */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9em;
+    background: #f1f5f9;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #6d28d9;
+  }
+
+  /* Math display */
+  mjx-container[jax="SVG"][display="true"] {
+    margin: 16px 0 !important;
+  }
+
+  /* Separator */
+  .end-sep {
+    text-align: center;
+    color: var(--muted);
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 0.9em;
+  }
+
+  /* Header/footer for print */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85em;
+    color: var(--muted);
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+  .header .left { font-weight: 600; color: var(--accent); }
+
+  strong { font-weight: 600; }
+
+  .proof-label { font-weight: 600; margin-top: 12px; margin-bottom: 4px; }

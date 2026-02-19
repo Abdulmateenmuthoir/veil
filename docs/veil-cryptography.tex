@@ -1,0 +1,481 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathtools}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{tcolorbox}
+
+\geometry{margin=1in}
+
+\definecolor{accent}{HTML}{7C3AED}
+\definecolor{darkbg}{HTML}{0A0A0F}
+\definecolor{cardbg}{HTML}{12121A}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=accent,
+    urlcolor=accent,
+    citecolor=accent,
+}
+
+\tcbuselibrary{skins,breakable}
+\newtcolorbox{protocolbox}[1]{
+    colback=gray!5,
+    colframe=accent,
+    fonttitle=\bfseries,
+    title=#1,
+    breakable,
+    arc=2mm,
+}
+
+\newtcolorbox{defbox}{
+    colback=gray!3,
+    colframe=gray!50,
+    arc=2mm,
+    left=6pt,
+    right=6pt,
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\textcolor{accent}{\textbf{Veil Protocol}}}
+\fancyhead[R]{\textcolor{gray}{Cryptographic Specification}}
+\fancyfoot[C]{\thepage}
+
+\titleformat{\section}{\Large\bfseries\color{accent}}{}{0em}{}
+\titleformat{\subsection}{\large\bfseries}{}{0em}{}
+
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\F}{\mathbb{F}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\G}{\mathbb{G}}
+\newcommand{\Enc}{\mathcal{E}}
+\newcommand{\Dec}{\mathcal{D}}
+\newcommand{\Cont}{\mathcal{C}}
+\newcommand{\Prot}{\Pi}
+\newcommand{\DLOG}{\operatorname{DLOG}}
+\newcommand{\BSGS}{\operatorname{BSGS}}
+
+\begin{document}
+
+\begin{center}
+    {\Huge\bfseries\textcolor{accent}{Veil Protocol}}\\[8pt]
+    {\Large Cryptographic Specification}\\[16pt]
+    {\large Confidential ERC-20 Transfers on Starknet}\\[4pt]
+    {\normalsize via Exponential ElGamal Encryption \& Homomorphic Balance Updates}\\[20pt]
+    {\small Starknet Re\{define\} Hackathon --- Privacy Track}\\[4pt]
+    {\small\textcolor{gray}{February 2026}}
+\end{center}
+
+\vspace{24pt}
+
+\tableofcontents
+
+\newpage
+
+%% ================================================================
+\section{Algebraic Foundations}
+%% ================================================================
+
+\subsection{The Stark Curve}
+
+Let $\E$ denote the Stark elliptic curve defined over the prime field $\F_p$ where:
+$$p = 2^{251} + 17 \cdot 2^{192} + 1 = 3618502788666131213697322783095070105623107215331596699973092056135872020481$$
+
+The curve is given by the short Weierstrass equation:
+$$\E / \F_p : \quad y^2 = x^3 + \alpha x + \beta$$
+
+with Stark-specific constants $\alpha = 1$, $\beta = 3141592653589793238462643383279502884197169399375105820974944592307816406665$.
+
+\subsection{Generator and Subgroup}
+
+Let $G \in \E(\F_p)$ be the canonical generator of the prime-order subgroup $\G \subset \E(\F_p)$ of order:
+$$n = |\G| = 3618502788666131213697322783095070105526743751716087489154079457884512865583$$
+
+The Discrete Logarithm Problem (DLP) in $\G$ is computationally intractable, providing $\sim 125$-bit security.
+
+\subsection{Notation}
+
+\begin{defbox}
+\begin{itemize}[leftmargin=1.5em]
+    \item $\cdot$ : Scalar-point multiplication on $\E$. For $k \in \Z_n$, $P \in \E$: $k \cdot P \in \E$.
+    \item $+$ : Point addition on $\E$.
+    \item $\mathcal{O}$ : The point at infinity (identity element of the group).
+    \item $H : \F_p \times \F_p \to \F_p$ : The Pedersen hash function (Stark-native).
+    \item $x \xleftarrow{\$} S$ : Uniform random sampling from set $S$.
+\end{itemize}
+\end{defbox}
+
+%% ================================================================
+\section{Key Generation}
+%% ================================================================
+
+Each user generates an ElGamal keypair $(sk, PK)$:
+
+\begin{align}
+    sk &\xleftarrow{\$} \Z_n^* \label{eq:keygen-sk}\\[4pt]
+    PK &= sk \cdot G \in \E \label{eq:keygen-pk}
+\end{align}
+
+The private key $sk$ is stored exclusively client-side (browser \texttt{localStorage}). The public key $PK = (PK_x, PK_y) \in \F_p^2$ is registered on-chain, bound to the user's Starknet account address via the mapping:
+
+$$\texttt{register}: \quad \text{caller} \xmapsto{} pk_{\text{hash}} = H(PK_x, PK_y)$$
+
+The bidirectional binding ensures:
+$$\forall\; \text{addr} \in \mathcal{A}: \quad |\{pk_{\text{hash}} : \texttt{addr\_to\_pk}[\text{addr}] = pk_{\text{hash}}\}| \leq 1$$
+
+%% ================================================================
+\section{Exponential ElGamal Encryption}
+%% ================================================================
+
+\subsection{Encryption}
+
+To encrypt a plaintext amount $m \in \Z$ under public key $PK$:
+
+\begin{protocolbox}{$\Enc_{PK}(m; r)$ --- Encryption}
+\begin{enumerate}
+    \item Sample randomness: $r \xleftarrow{\$} \Z_n^*$
+    \item Compute shared secret: $S = r \cdot PK = r \cdot sk \cdot G$
+    \item Compute message encoding: $M = m \cdot G$
+    \item Output ciphertext:
+    $$CT = (C_1, C_2) = \Big(\underbrace{r \cdot G}_{\text{ephemeral key}}, \quad \underbrace{m \cdot G + r \cdot PK}_{\text{masked message}}\Big) \in \E^2$$
+\end{enumerate}
+\end{protocolbox}
+
+The ciphertext consists of four field elements $(C_{1,x}, C_{1,y}, C_{2,x}, C_{2,y}) \in \F_p^4$, stored on-chain as four \texttt{felt252} values.
+
+\textbf{Semantic security} holds under the Decisional Diffie--Hellman (DDH) assumption on $\G$: given $(G, \; r \cdot G, \; PK, \; C_2)$, no PPT adversary can distinguish $C_2 = m \cdot G + r \cdot PK$ from a uniformly random element of $\G$.
+
+\subsection{Decryption}
+
+Given ciphertext $CT = (C_1, C_2)$ and private key $sk$:
+
+\begin{protocolbox}{$\Dec_{sk}(CT)$ --- Decryption}
+\begin{enumerate}
+    \item Compute blinding removal:
+    $$m \cdot G = C_2 - sk \cdot C_1$$
+
+    \textbf{Proof of correctness:}
+    \begin{align*}
+        C_2 - sk \cdot C_1 &= \big(m \cdot G + r \cdot PK\big) - sk \cdot \big(r \cdot G\big) \\
+        &= m \cdot G + r \cdot sk \cdot G - sk \cdot r \cdot G \\
+        &= m \cdot G
+    \end{align*}
+
+    \item Recover $m$ via Baby-Step Giant-Step (BSGS):
+    $$m = \DLOG_G\big(m \cdot G\big), \qquad m \in [0, \; 2^{32})$$
+\end{enumerate}
+\end{protocolbox}
+
+\subsection{BSGS Discrete Logarithm Recovery}
+
+For target point $Q = m \cdot G$ with $m < N = 2^{32}$, let $\ell = \lceil\sqrt{N}\rceil$:
+
+\begin{align}
+    &\textbf{Baby steps:} & T &= \big\{(j, \; j \cdot G) : j \in [0, \ell)\big\} \\[4pt]
+    &\textbf{Giant steps:} & \gamma_i &= Q - i \cdot (\ell \cdot G), \quad i \in [0, \ell)
+\end{align}
+
+If $\gamma_i = j \cdot G$ for some $(j, j \cdot G) \in T$, then $m = i \cdot \ell + j$.
+
+\textbf{Complexity:} $\mathcal{O}(\sqrt{N})$ time and space $= \mathcal{O}(2^{16}) \approx 65{,}536$ operations.
+
+%% ================================================================
+\section{Homomorphic Properties}
+%% ================================================================
+
+Exponential ElGamal is \textbf{additively homomorphic}. For ciphertexts encrypting $a$ and $b$:
+
+\begin{align}
+    CT_a &= \Enc_{PK}(a; r_a) = (r_a \cdot G, \;\; a \cdot G + r_a \cdot PK) \\
+    CT_b &= \Enc_{PK}(b; r_b) = (r_b \cdot G, \;\; b \cdot G + r_b \cdot PK)
+\end{align}
+
+\subsection{Homomorphic Addition}
+
+$$CT_a \oplus CT_b \coloneqq \Big(C_1^{(a)} + C_1^{(b)}, \;\; C_2^{(a)} + C_2^{(b)}\Big) = \Enc_{PK}(a + b; \; r_a + r_b)$$
+
+\textbf{Proof:}
+\begin{align*}
+    C_1^{(a)} + C_1^{(b)} &= r_a \cdot G + r_b \cdot G = (r_a + r_b) \cdot G \\[4pt]
+    C_2^{(a)} + C_2^{(b)} &= (a \cdot G + r_a \cdot PK) + (b \cdot G + r_b \cdot PK) \\
+    &= (a + b) \cdot G + (r_a + r_b) \cdot PK \qquad\qquad \square
+\end{align*}
+
+\subsection{Homomorphic Subtraction}
+
+$$CT_a \ominus CT_b \coloneqq \Big(C_1^{(a)} - C_1^{(b)}, \;\; C_2^{(a)} - C_2^{(b)}\Big) = \Enc_{PK}(a - b; \; r_a - r_b)$$
+
+where point subtraction is defined as $P - Q = P + (-Q)$, with $-Q = (x_Q, -y_Q \bmod p)$.
+
+\subsection{Homomorphic Invariant}
+
+For any sequence of operations $\sigma_1, \sigma_2, \ldots, \sigma_k$ (deposits, transfers, withdrawals) with amounts $d_1, d_2, \ldots, d_k$ and signs $s_i \in \{+1, -1\}$:
+
+$$\Dec_{sk}\!\left(\bigoplus_{i=1}^{k} s_i \cdot CT_{d_i}\right) = \sum_{i=1}^{k} s_i \cdot d_i$$
+
+The contract \textbf{never decrypts} --- it operates purely on the ciphertext group.
+
+%% ================================================================
+\section{Protocol I: Shielding (Deposit)}
+%% ================================================================
+
+\begin{protocolbox}{$\Prot_{\text{shield}}(d)$ --- Deposit $d$ tokens into shielded pool}
+
+\textbf{State:} User's on-chain encrypted balance $\mathbf{B} = (B_1, B_2) = \Enc_{PK}(b; \rho)$ where $\rho$ is accumulated randomness from prior operations.
+
+\textbf{Input:} Plaintext deposit amount $d \in \Z^+$.
+
+\vspace{8pt}
+\textbf{Client-side computation:}
+\begin{enumerate}
+    \item Sample fresh randomness: $r \xleftarrow{\$} \Z_n^*$
+
+    \item Compute encryption of deposit amount:
+    $$CT_d = \Enc_{PK}(d; r) = \big(r \cdot G, \;\; d \cdot G + r \cdot PK\big)$$
+
+    \item Compute new encrypted balance via homomorphic addition:
+    $$\mathbf{B}' = \mathbf{B} \oplus CT_d$$
+    \begin{align}
+        B_1' &= B_1 + r \cdot G \label{eq:deposit-c1}\\
+        B_2' &= B_2 + d \cdot G + r \cdot PK \label{eq:deposit-c2}
+    \end{align}
+
+    \item Submit transaction: $\texttt{deposit}(d, \; B_1', \; B_2')$
+\end{enumerate}
+
+\vspace{8pt}
+\textbf{Contract execution} $\Cont_{\text{shield}}$:
+\begin{align*}
+    &\texttt{assert}(d > 0) \\
+    &\texttt{assert}\big(\texttt{addr\_to\_pk}[\text{caller}] \neq 0\big) \\
+    &\texttt{ERC20.transferFrom}(\text{caller}, \; \texttt{pool}, \; d) \\
+    &\texttt{balance}[pk_{\text{hash}}] \leftarrow \mathbf{B}' = (B_1', B_2') \\
+    &\texttt{TVL} \leftarrow \texttt{TVL} + d
+\end{align*}
+
+\vspace{8pt}
+\textbf{Correctness:}
+$$\Dec_{sk}(\mathbf{B}') = \DLOG_G\big(B_2' - sk \cdot B_1'\big) = b + d$$
+
+\textbf{Proof:}
+\begin{align*}
+    B_2' - sk \cdot B_1' &= \big(B_2 + d \cdot G + r \cdot PK\big) - sk \cdot \big(B_1 + r \cdot G\big) \\
+    &= \underbrace{(B_2 - sk \cdot B_1)}_{= \, b \cdot G} + d \cdot G + \underbrace{r \cdot PK - sk \cdot r \cdot G}_{= \, r \cdot sk \cdot G - sk \cdot r \cdot G \, = \, \mathcal{O}} \\
+    &= (b + d) \cdot G \qquad\qquad \square
+\end{align*}
+\end{protocolbox}
+
+%% ================================================================
+\section{Protocol II: Unshielding (Withdrawal)}
+%% ================================================================
+
+\begin{protocolbox}{$\Prot_{\text{unshield}}(w)$ --- Withdraw $w$ tokens from shielded pool}
+
+\textbf{State:} On-chain encrypted balance $\mathbf{B} = (B_1, B_2) = \Enc_{PK}(b; \rho)$.
+
+\textbf{Input:} Withdrawal amount $w \in \Z^+$.
+
+\vspace{8pt}
+\textbf{Client-side computation:}
+\begin{enumerate}
+    \item Decrypt current balance:
+    $$b = \DLOG_G\big(B_2 - sk \cdot B_1\big) \qquad \text{via BSGS}$$
+
+    \item Verify solvency: assert $b \geq w$
+
+    \item Sample fresh randomness: $r \xleftarrow{\$} \Z_n^*$
+
+    \item Encrypt withdrawal amount:
+    $$CT_w = \Enc_{PK}(w; r) = \big(r \cdot G, \;\; w \cdot G + r \cdot PK\big)$$
+
+    \item Compute new balance via homomorphic subtraction:
+    $$\mathbf{B}' = \mathbf{B} \ominus CT_w$$
+    \begin{align}
+        B_1' &= B_1 - r \cdot G \\
+        B_2' &= B_2 - w \cdot G - r \cdot PK
+    \end{align}
+
+    \item Generate unique nonce: $\eta \xleftarrow{\$} \{0,1\}^{248}$
+
+    \item Compute nullifier with domain separation ($\delta = 2$ for withdrawals):
+    $$\nu = H\Big(H(sk, \; \eta), \;\; \delta\Big) \in \F_p$$
+
+    \item Compute proof commitment (chained Pedersen hash):
+    $$\pi = H\bigg(H\Big(H(sk, \; b), \;\; w\Big), \;\; \nu\bigg) \in \F_p$$
+
+    This binds the proof to the tuple $(sk, b, w, \nu)$ without revealing any component.
+
+    \item Submit transaction: $\texttt{withdraw}(w, \; \mathbf{B}', \; \pi, \; \nu)$
+\end{enumerate}
+
+\vspace{8pt}
+\textbf{Contract execution} $\Cont_{\text{unshield}}$:
+\begin{align*}
+    &\texttt{assert}(w > 0) \\
+    &\texttt{assert}\big(\texttt{nullifiers}[\nu] = \texttt{false}\big) \quad \text{// double-spend prevention} \\
+    &\texttt{assert}(\pi \neq 0) \quad \text{// MVP placeholder; production: STARK verification} \\
+    &\texttt{assert}(\texttt{TVL} \geq w) \\
+    &\texttt{nullifiers}[\nu] \leftarrow \texttt{true} \\
+    &\texttt{balance}[pk_{\text{hash}}] \leftarrow \mathbf{B}' \\
+    &\texttt{TVL} \leftarrow \texttt{TVL} - w \\
+    &\texttt{ERC20.transfer}(\text{caller}, \; w)
+\end{align*}
+
+\vspace{8pt}
+\textbf{Correctness:}
+$$\Dec_{sk}(\mathbf{B}') = \DLOG_G\big(B_2' - sk \cdot B_1'\big) = b - w$$
+
+\textbf{Proof:}
+\begin{align*}
+    B_2' - sk \cdot B_1' &= \big(B_2 - w \cdot G - r \cdot PK\big) - sk \cdot \big(B_1 - r \cdot G\big) \\
+    &= \underbrace{(B_2 - sk \cdot B_1)}_{= \, b \cdot G} - w \cdot G - \underbrace{r \cdot PK + sk \cdot r \cdot G}_{= \, r \cdot sk \cdot G - sk \cdot r \cdot G \, = \, \mathcal{O}} \\
+    &= (b - w) \cdot G \qquad\qquad \square
+\end{align*}
+
+\vspace{8pt}
+\textbf{Nullifier uniqueness:}
+$$\Pr[\nu_i = \nu_j \;|\; i \neq j] \leq \frac{1}{p} + \operatorname{negl}(\lambda)$$
+
+since $H$ is collision-resistant and each $\eta_i$ is sampled independently.
+\end{protocolbox}
+
+%% ================================================================
+\section{Protocol III: Confidential Transfer}
+%% ================================================================
+
+\begin{protocolbox}{$\Prot_{\text{transfer}}(t, PK_r)$ --- Private transfer of $t$ tokens to recipient $PK_r$}
+
+\textbf{State:}
+\begin{itemize}[leftmargin=1.5em]
+    \item Sender balance: $\mathbf{B}^{(s)} = (B_1^{(s)}, B_2^{(s)}) = \Enc_{PK_s}(b_s; \rho_s)$
+    \item Recipient balance: $\mathbf{B}^{(r)} = (B_1^{(r)}, B_2^{(r)}) = \Enc_{PK_r}(b_r; \rho_r)$
+\end{itemize}
+
+\textbf{Input:} Transfer amount $t \in \Z^+$, recipient public key $PK_r$.
+
+\vspace{8pt}
+\textbf{Client-side computation:}
+\begin{enumerate}
+    \item Decrypt sender balance: $b_s = \DLOG_G(B_2^{(s)} - sk_s \cdot B_1^{(s)})$
+
+    \item Assert $b_s \geq t$
+
+    \item Sample independent randomness: $r_s, r_r \xleftarrow{\$} \Z_n^*$
+
+    \item \textbf{Sender update} (subtract under sender's key):
+    \begin{align}
+        CT_s &= \Enc_{PK_s}(t; r_s) \\
+        \mathbf{B}^{(s)\prime} &= \mathbf{B}^{(s)} \ominus CT_s
+    \end{align}
+    $$B_1^{(s)\prime} = B_1^{(s)} - r_s \cdot G, \qquad B_2^{(s)\prime} = B_2^{(s)} - t \cdot G - r_s \cdot PK_s$$
+
+    \item \textbf{Recipient update} (add under recipient's key):
+    \begin{align}
+        CT_r &= \Enc_{PK_r}(t; r_r) \\
+        \mathbf{B}^{(r)\prime} &= \mathbf{B}^{(r)} \oplus CT_r
+    \end{align}
+    $$B_1^{(r)\prime} = B_1^{(r)} + r_r \cdot G, \qquad B_2^{(r)\prime} = B_2^{(r)} + t \cdot G + r_r \cdot PK_r$$
+
+    Note: The sender reads $\mathbf{B}^{(r)}$ from on-chain state before computing $\mathbf{B}^{(r)\prime}$.
+
+    \item Generate nullifier ($\delta = 1$ for transfers):
+    $$\nu = H\big(H(sk_s, \eta), \; 1\big)$$
+
+    \item Proof commitment:
+    $$\pi = H\Big(H\big(H(sk_s, b_s), t\big), \nu\Big)$$
+
+    \item Submit: $\texttt{transfer}(PK_r, \; \mathbf{B}^{(s)\prime}, \; \mathbf{B}^{(r)\prime}, \; \pi, \; \nu)$
+\end{enumerate}
+
+\vspace{8pt}
+\textbf{Conservation law:}
+$$\Dec_{sk_s}(\mathbf{B}^{(s)\prime}) + \Dec_{sk_r}(\mathbf{B}^{(r)\prime}) = (b_s - t) + (b_r + t) = b_s + b_r$$
+
+The total value across all encrypted balances is conserved. The contract never observes $t$, $b_s$, or $b_r$.
+
+\vspace{8pt}
+\textbf{Privacy guarantee:} The transfer amount $t$ is information-theoretically hidden from on-chain observers because:
+\begin{enumerate}
+    \item Each $CT_s, CT_r$ uses independent randomness ($r_s \neq r_r$)
+    \item The ciphertexts are encrypted under \emph{different} public keys ($PK_s \neq PK_r$)
+    \item No algebraic relation between $\mathbf{B}^{(s)\prime}$ and $\mathbf{B}^{(r)\prime}$ reveals $t$ without knowledge of $sk_s$ or $sk_r$
+\end{enumerate}
+\end{protocolbox}
+
+%% ================================================================
+\section{Security Analysis}
+%% ================================================================
+
+\subsection{Confidentiality}
+
+\textbf{Theorem.} Under the DDH assumption on $\G$, the encrypted balance $\mathbf{B} = \Enc_{PK}(b; \rho)$ reveals no information about $b$ to any observer without knowledge of $sk$.
+
+\textit{Sketch.} Each ciphertext component $(C_1, C_2)$ is an ElGamal encryption. By IND-CPA security of ElGamal under DDH, no PPT adversary can distinguish $\Enc_{PK}(b_0)$ from $\Enc_{PK}(b_1)$ for any $b_0 \neq b_1$. Homomorphic composition preserves this property since the accumulated ciphertext remains a valid ElGamal encryption with randomness $\rho = \sum r_i \bmod n$. $\square$
+
+\subsection{Double-Spend Prevention}
+
+The nullifier $\nu = H(H(sk, \eta), \delta)$ is deterministically bound to $(sk, \eta, \delta)$. Since:
+\begin{itemize}[leftmargin=1.5em]
+    \item Each $\eta$ is sampled uniformly from $\{0,1\}^{248}$ (birthday bound: $2^{124}$ operations)
+    \item $H$ is collision-resistant
+    \item The contract maintains $\texttt{nullifiers}[\nu] \in \{\texttt{true}, \texttt{false}\}$
+\end{itemize}
+No transaction can be replayed without producing a spent nullifier.
+
+\subsection{Balance Integrity (MVP Limitation)}
+
+In the current MVP, proof verification is:
+$$\Cont: \quad \texttt{assert}(\pi \neq 0)$$
+
+In production, this should be replaced with a STARK proof $\pi$ verifying:
+
+$$\pi \vdash \begin{cases}
+    \exists \; sk, b, m : & \\
+    \quad (1) \; b = \DLOG_G(B_2 - sk \cdot B_1) & \text{// knowledge of balance} \\
+    \quad (2) \; PK = sk \cdot G & \text{// key ownership} \\
+    \quad (3) \; b \geq m > 0 & \text{// solvency + positivity} \\
+    \quad (4) \; \mathbf{B}' = \mathbf{B} \ominus \Enc_{PK}(m; r) & \text{// correct update}
+\end{cases}$$
+
+\subsection{Anonymity Set}
+
+All users share a single \texttt{ShieldedPool} contract. The anonymity set for any withdrawal is the set of all registered users:
+
+$$\mathcal{A} = \big\{pk_{\text{hash}} : \texttt{registered}[pk_{\text{hash}}] = \texttt{true}\big\}$$
+
+Unlike per-user contracts, this design prevents trivial deanonymization via contract address correlation.
+
+%% ================================================================
+\section{On-Chain Storage Layout}
+%% ================================================================
+
+Each encrypted balance $\mathbf{B} = (C_1, C_2) \in \E^2$ is stored as four \texttt{felt252} values:
+
+$$\texttt{balance}[pk_{\text{hash}}] = \big(C_{1,x}, \; C_{1,y}, \; C_{2,x}, \; C_{2,y}\big) \in \F_p^4$$
+
+The storage key is derived via Pedersen hash of the public key coordinates:
+
+$$pk_{\text{hash}} = H(PK_x, \; PK_y) \in \F_p$$
+
+Total storage per user: $4 \times 252 = 1{,}008$ bits $\approx 126$ bytes.
+
+The zero ciphertext (initial balance) is represented as:
+
+$$\mathbf{B}_0 = (\mathcal{O}, \mathcal{O}) \equiv (0, 0, 0, 0) \in \F_p^4$$
+
+satisfying $\Dec_{sk}(\mathbf{B}_0) = \DLOG_G(\mathcal{O} - sk \cdot \mathcal{O}) = \DLOG_G(\mathcal{O}) = 0$.
+
+\vspace{24pt}
+\begin{center}
+\textcolor{gray}{\rule{0.5\textwidth}{0.4pt}}\\[8pt]
+\textcolor{gray}{\small End of specification.}
+\end{center}
+
+\end{document}
