@@ -3,7 +3,8 @@
 import { useCallback, useMemo } from "react";
 import { useAccount } from "@starknet-react/core";
 import { RpcProvider } from "starknet";
-import { SHIELDED_POOL_ADDRESS, ERC20_TOKEN_ADDRESS } from "@/lib/constants";
+import { SHIELDED_POOL_ADDRESS, ERC20_TOKEN_ADDRESS, VEIL_NAME_REGISTRY_ADDRESS } from "@/lib/constants";
+import { strToFelt252 } from "@/hooks/useVeilName";
 
 const SEPOLIA_RPC = "https://starknet-sepolia.infura.io/v3/be6b7a09f96f42b8ad45edfbeef94df5";
 
@@ -61,6 +62,32 @@ export function useShieldedPool() {
         entrypoint: "register",
         calldata: [toHex(pkX), toHex(pkY)],
       }]);
+      await provider.waitForTransaction(result.transaction_hash);
+      return result.transaction_hash;
+    },
+    [account, provider],
+  );
+
+  /**
+   * Combined multicall: register in ShieldedPool + claim a .veil name.
+   * Both calls are submitted in a single transaction — one wallet confirmation.
+   */
+  const registerWithName = useCallback(
+    async (pkX: bigint, pkY: bigint, name: string) => {
+      if (!account) throw new Error("Wallet not connected");
+      const nameFelt = strToFelt252(name);
+      const result = await account.execute([
+        {
+          contractAddress: SHIELDED_POOL_ADDRESS,
+          entrypoint: "register",
+          calldata: [toHex(pkX), toHex(pkY)],
+        },
+        {
+          contractAddress: VEIL_NAME_REGISTRY_ADDRESS,
+          entrypoint: "register_name",
+          calldata: [toHex(nameFelt), toHex(pkX), toHex(pkY)],
+        },
+      ]);
       await provider.waitForTransaction(result.transaction_hash);
       return result.transaction_hash;
     },
@@ -161,6 +188,7 @@ export function useShieldedPool() {
 
   return {
     register,
+    registerWithName,
     deposit,
     transfer,
     withdraw,

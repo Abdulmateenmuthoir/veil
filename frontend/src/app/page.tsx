@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useAccount } from "@starknet-react/core";
-import { Shield, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Shield, AtSign } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import KeySetup from "@/components/KeySetup";
 import KeyInfo from "@/components/KeyInfo";
@@ -13,9 +13,10 @@ import { useElGamalKey } from "@/hooks/useElGamalKey";
 import { useShieldedBalance } from "@/hooks/useShieldedBalance";
 import { useNonce } from "@/hooks/useNonce";
 import { useShieldedPool } from "@/hooks/useShieldedPool";
+import { useVeilName, validateVeilName } from "@/hooks/useVeilName";
 
 export default function Home() {
-  const { isConnected } = useAccount();
+  const { isConnected, account } = useAccount();
   const { keys, loading: keysLoading, generateKeys, clearKeys } = useElGamalKey();
   const {
     decryptedBalance,
@@ -28,19 +29,28 @@ export default function Home() {
   } = useShieldedBalance(keys);
   const { nextNullifier, nextProofHash } = useNonce();
   const {
-    register,
+    registerWithName,
     deposit,
     transfer,
     withdraw,
     fetchBalance,
     checkRegistered,
   } = useShieldedPool();
+  const { checkNameAvailable, getNameForAddress } = useVeilName();
 
   const [transactions, setTransactions] = useState<TxRecord[]>([]);
   const [registered, setRegistered] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [regChecked, setRegChecked] = useState(false);
   const [regError, setRegError] = useState<string | null>(null);
+
+  // VNS state
+  const [veilName, setVeilName] = useState("");
+  const [nameStatus, setNameStatus] = useState<
+    "idle" | "invalid" | "checking" | "available" | "taken"
+  >("idle");
+  const [myVeilName, setMyVeilName] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Check registration status + sync balance when keys are available.
   useEffect(() => {
@@ -68,6 +78,41 @@ export default function Home() {
 
     return () => { cancelled = true; };
   }, [keys, isConnected, checkRegistered, fetchBalance, syncFromChain]);
+
+  // Fetch the user's .veil name when they are registered.
+  useEffect(() => {
+    if (!registered || !account?.address) return;
+    getNameForAddress(account.address)
+      .then((name) => { if (name) setMyVeilName(name); })
+      .catch(() => {});
+  }, [registered, account?.address, getNameForAddress]);
+
+  // Debounced name availability check.
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (!veilName) {
+      setNameStatus("idle");
+      return;
+    }
+    if (!validateVeilName(veilName)) {
+      setNameStatus("invalid");
+      return;
+    }
+    setNameStatus("checking");
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const available = await checkNameAvailable(veilName);
+        setNameStatus(available ? "available" : "taken");
+      } catch {
+        setNameStatus("idle");
+      }
+    }, 500);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [veilName, checkNameAvailable]);
 
   // Sync balance from chain after any on-chain operation.
   const refreshBalance = useCallback(async () => {
@@ -99,12 +144,13 @@ export default function Home() {
   // ── Handlers ──
 
   const handleRegister = useCallback(async () => {
-    if (!keys) return;
+    if (!keys || nameStatus !== "available") return;
     setRegistering(true);
     setRegError(null);
     try {
-      await register(keys.publicKey.x, keys.publicKey.y);
+      await registerWithName(keys.publicKey.x, keys.publicKey.y, veilName);
       setRegistered(true);
+      setMyVeilName(veilName);
       await refreshBalance();
     } catch (err) {
       console.error("Registration failed:", err);
@@ -114,6 +160,7 @@ export default function Home() {
         const isReg = await checkRegistered(keys.publicKey.x, keys.publicKey.y);
         if (isReg) {
           setRegistered(true);
+          setMyVeilName(veilName);
           await refreshBalance();
           return;
         }
@@ -125,7 +172,7 @@ export default function Home() {
     } finally {
       setRegistering(false);
     }
-  }, [keys, register, checkRegistered, refreshBalance]);
+  }, [keys, nameStatus, veilName, registerWithName, checkRegistered, refreshBalance]);
 
   const handleDeposit = useCallback(
     async (amount: string) => {
@@ -279,18 +326,57 @@ export default function Home() {
 
   // Keys generated but not registered on-chain yet.
   if (regChecked && !registered) {
+    const nameStatusIcon = () => {
+      if (nameStatus === "checking") return <Loader2 className="w-4 h-4 animate-spin text-muted" />;
+      if (nameStatus === "available") return <CheckCircle2 className="w-4 h-4 text-green-400" />;
+      if (nameStatus === "taken") return <XCircle className="w-4 h-4 text-red-400" />;
+      if (nameStatus === "invalid") return <XCircle className="w-4 h-4 text-red-400" />;
+      return null;
+    };
+
+    const nameHint = () => {
+      if (nameStatus === "available") return <span className="text-green-400">{veilName}.veil is available</span>;
+      if (nameStatus === "taken") return <span className="text-red-400">Name already taken</span>;
+      if (nameStatus === "invalid") return <span className="text-red-400">3–31 chars, lowercase letters, numbers, hyphens only</span>;
+      return <span className="text-muted">Choose your .veil identity (e.g. "pious")</span>;
+    };
+
     return (
       <>
         <Navbar />
         <main className="min-h-screen flex items-center justify-center px-4 pt-20">
           <div className="glow-card rounded-2xl bg-card border border-border p-8 max-w-lg mx-auto text-center">
             <img src="/veil-logo.svg" alt="Veil" className="w-16 h-16 rounded-2xl mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Register On-Chain</h2>
+            <h2 className="text-xl font-semibold mb-2">Claim Your .veil Identity</h2>
             <p className="text-muted text-sm leading-relaxed mb-6 max-w-sm mx-auto">
-              Your encryption keypair is ready. Register your public key on the
-              ShieldedPool contract so you can deposit, transfer, and withdraw
-              privately.
+              Pick a name like <span className="text-accent font-mono">pious.veil</span> — others can
+              send to you privately using just this name.
             </p>
+
+            {/* Name input */}
+            <div className="mb-6 text-left">
+              <label className="text-sm text-muted mb-1.5 block">Your .veil name</label>
+              <div className="relative">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                  <AtSign className="w-4 h-4 text-muted" />
+                </div>
+                <input
+                  type="text"
+                  value={veilName}
+                  onChange={(e) => setVeilName(e.target.value.toLowerCase())}
+                  placeholder="pious"
+                  maxLength={31}
+                  className="w-full pl-10 pr-20 py-3 rounded-xl bg-background border border-border focus:border-accent focus:outline-none text-sm font-mono placeholder:text-muted/40"
+                />
+                <div className="absolute right-14 top-1/2 -translate-y-1/2">
+                  {nameStatusIcon()}
+                </div>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted font-mono">
+                  .veil
+                </div>
+              </div>
+              <p className="mt-1.5 text-xs">{nameHint()}</p>
+            </div>
 
             <KeyInfo keys={keys} onClear={clearKeys} />
 
@@ -302,7 +388,7 @@ export default function Home() {
 
             <button
               onClick={handleRegister}
-              disabled={registering}
+              disabled={registering || nameStatus !== "available"}
               className="w-full mt-6 flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-accent hover:bg-accent-hover text-white font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {registering ? (
@@ -339,6 +425,15 @@ export default function Home() {
       <Navbar />
       <main className="min-h-screen pt-24 pb-12 px-4">
         <div className="max-w-2xl mx-auto space-y-6">
+          {/* .veil identity banner */}
+          {myVeilName && (
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent/10 border border-accent/20">
+              <AtSign className="w-4 h-4 text-accent flex-shrink-0" />
+              <span className="text-sm font-mono text-accent font-medium">{myVeilName}.veil</span>
+              <span className="text-xs text-muted ml-auto">your shielded identity</span>
+            </div>
+          )}
+
           <BalanceCard balance={decryptedBalance} loading={balanceLoading} />
 
           <ActionPanel
