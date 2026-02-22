@@ -349,7 +349,7 @@ export default function Home() {
             <img src="/veil-logo.svg" alt="Veil" className="w-16 h-16 rounded-2xl mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">Claim Your .veil Identity</h2>
             <p className="text-muted text-sm leading-relaxed mb-6 max-w-sm mx-auto">
-              Pick a name like <span className="text-accent font-mono">pious.veil</span> — others can
+              Pick a name like <span className="text-accent font-mono">pious.veil</span> - others can
               send to you privately using just this name.
             </p>
 

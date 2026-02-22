@@ -53,7 +53,7 @@ export function useShieldedBalance(keys: ElGamalKeys | null) {
 
   // Decrypt the current encrypted balance.
   const decryptBalance = useCallback(
-    (ct: Ciphertext, maxAmount: bigint = 1n << 32n): bigint | null => {
+    (ct: Ciphertext, maxAmount: bigint = 1n << 36n): bigint | null => {
       if (!keys) return null;
       const skC1 = ct.c1.equals(ZERO) ? ZERO : ct.c1.multiply(keys.privateKey);
       const mG = ct.c2.add(skC1.negate());
@@ -102,7 +102,8 @@ export function useShieldedBalance(keys: ElGamalKeys | null) {
       // Recipient side: encrypt amount under their key.
       const r = randomScalar();
       const recipientC1 = G.multiply(r);
-      const mG = G.multiply(amount);
+      const amountGwei = amount / BALANCE_SCALE;
+      const mG = amountGwei === 0n ? ZERO : G.multiply(amountGwei);
       const rPK = recipientPK.multiply(r);
       const recipientC2 = mG.add(rPK);
 

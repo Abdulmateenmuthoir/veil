@@ -1,4 +1,4 @@
-/** ShieldedPool ABI — extracted from compiled sierra contract. */
+/** ShieldedPool ABI - extracted from compiled sierra contract. */
 export const SHIELDED_POOL_ABI = [
   {
     type: "impl",

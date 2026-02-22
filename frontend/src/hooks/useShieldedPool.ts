@@ -70,7 +70,7 @@ export function useShieldedPool() {
 
   /**
    * Combined multicall: register in ShieldedPool + claim a .veil name.
-   * Both calls are submitted in a single transaction — one wallet confirmation.
+   * Both calls are submitted in a single transaction - one wallet confirmation.
    */
   const registerWithName = useCallback(
     async (pkX: bigint, pkY: bigint, name: string) => {

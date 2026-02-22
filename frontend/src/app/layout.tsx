@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Veil — Private Transactions on Starknet",
+  title: "Veil - Private Transactions on Starknet",
   description:
     "Confidential ERC20 transfers using ElGamal encryption and STARK proofs. Deposit, transfer, and withdraw privately.",
 };

@@ -43,7 +43,7 @@ export default function BalanceCard({ balance, loading }: BalanceCardProps) {
 
       <div className="mt-4 flex items-center gap-2 text-xs text-muted">
         <div className="w-1.5 h-1.5 rounded-full bg-success" />
-        <span>Encrypted on-chain — only you can decrypt</span>
+        <span>Encrypted on-chain - only you can decrypt</span>
       </div>
     </div>
   );

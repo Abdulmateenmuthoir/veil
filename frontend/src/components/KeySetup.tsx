@@ -22,7 +22,7 @@ export default function KeySetup({ keys, onGenerate }: KeySetupProps) {
 
         <p className="text-muted text-sm leading-relaxed max-w-sm">
           Generate an ElGamal encryption keypair. This key encrypts your
-          balances so only you can see them. It stays in your browser — never
+          balances so only you can see them. It stays in your browser - never
           sent to anyone.
         </p>
 

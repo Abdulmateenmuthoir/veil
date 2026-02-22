@@ -37,7 +37,7 @@ export function useElGamalKey() {
         setKeys({ privateKey, publicKey: { x, y }, publicKeyPoint });
       }
     } catch {
-      // Corrupt data — clear.
+      // Corrupt data - clear.
       localStorage.removeItem(LS_ELGAMAL_PRIVATE_KEY);
       localStorage.removeItem(LS_ELGAMAL_PUBLIC_KEY_X);
       localStorage.removeItem(LS_ELGAMAL_PUBLIC_KEY_Y);
