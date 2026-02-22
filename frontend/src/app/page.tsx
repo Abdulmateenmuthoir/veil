@@ -14,6 +14,7 @@ import { useShieldedBalance } from "@/hooks/useShieldedBalance";
 import { useNonce } from "@/hooks/useNonce";
 import { useShieldedPool } from "@/hooks/useShieldedPool";
 import { useVeilName, validateVeilName } from "@/hooks/useVeilName";
+import { LS_TX_HISTORY } from "@/lib/constants";
 
 export default function Home() {
   const { isConnected, account } = useAccount();
@@ -38,7 +39,14 @@ export default function Home() {
   } = useShieldedPool();
   const { checkNameAvailable, getNameForAddress } = useVeilName();
 
-  const [transactions, setTransactions] = useState<TxRecord[]>([]);
+  const [transactions, setTransactions] = useState<TxRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem(LS_TX_HISTORY);
+      return saved ? (JSON.parse(saved) as TxRecord[]) : [];
+    } catch {
+      return [];
+    }
+  });
   const [registered, setRegistered] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [regChecked, setRegChecked] = useState(false);
@@ -67,7 +75,7 @@ export default function Home() {
         if (isReg) {
           const bal = await fetchBalance(keys.publicKey.x, keys.publicKey.y);
           if (!cancelled) {
-            syncFromChain(bal.c1x, bal.c1y, bal.c2x, bal.c2y);
+            await syncFromChain(bal.c1x, bal.c1y, bal.c2x, bal.c2y);
           }
         }
       } catch (err) {
@@ -119,7 +127,7 @@ export default function Home() {
     if (!keys) return;
     try {
       const bal = await fetchBalance(keys.publicKey.x, keys.publicKey.y);
-      syncFromChain(bal.c1x, bal.c1y, bal.c2x, bal.c2y);
+      await syncFromChain(bal.c1x, bal.c1y, bal.c2x, bal.c2y);
     } catch (err) {
       console.error("Failed to refresh balance:", err);
     }
@@ -127,16 +135,20 @@ export default function Home() {
 
   const addTx = useCallback(
     (type: TxRecord["type"], amount: string, txHash?: string) => {
-      setTransactions((prev) => [
-        {
-          id: crypto.randomUUID(),
-          type,
-          amount,
-          timestamp: Date.now(),
-          txHash,
-        },
-        ...prev,
-      ]);
+      setTransactions((prev) => {
+        const next = [
+          {
+            id: crypto.randomUUID(),
+            type,
+            amount,
+            timestamp: Date.now(),
+            txHash,
+          },
+          ...prev,
+        ];
+        try { localStorage.setItem(LS_TX_HISTORY, JSON.stringify(next)); } catch {}
+        return next;
+      });
     },
     [],
   );

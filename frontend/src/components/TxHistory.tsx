@@ -74,7 +74,7 @@ export default function TxHistory({ transactions }: TxHistoryProps) {
                 </div>
                 {tx.txHash && (
                   <a
-                    href={`https://sepolia.starkscan.co/tx/${tx.txHash}`}
+                    href={`https://sepolia.voyager.online/tx/${tx.txHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs text-accent hover:underline"
