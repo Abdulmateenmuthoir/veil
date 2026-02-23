@@ -30,7 +30,7 @@ export default function Home() {
   } = useShieldedBalance(keys);
   const { nextNullifier, nextProofHash } = useNonce();
   const {
-    register,
+    reRegister,
     registerWithName,
     deposit,
     transfer,
@@ -188,8 +188,8 @@ export default function Home() {
     const nameToSet = resolvedExisting || veilName;
     try {
       if (resolvedExisting) {
-        // Address already has a .veil name — just register new keys in the pool.
-        await register(keys.publicKey.x, keys.publicKey.y);
+        // Address already bound — use re_register to swap in the new key pair.
+        await reRegister(keys.publicKey.x, keys.publicKey.y);
       } else {
         await registerWithName(keys.publicKey.x, keys.publicKey.y, veilName);
       }
@@ -216,7 +216,7 @@ export default function Home() {
     } finally {
       setRegistering(false);
     }
-  }, [keys, existingVeilName, account?.address, getNameForAddress, nameStatus, veilName, register, registerWithName, checkRegistered, refreshBalance]);
+  }, [keys, existingVeilName, account?.address, getNameForAddress, nameStatus, veilName, reRegister, registerWithName, checkRegistered, refreshBalance]);
 
   const handleDeposit = useCallback(
     async (amount: string) => {

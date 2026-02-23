@@ -68,6 +68,20 @@ export function useShieldedPool() {
     [account, provider],
   );
 
+  const reRegister = useCallback(
+    async (pkX: bigint, pkY: bigint) => {
+      if (!account) throw new Error("Wallet not connected");
+      const result = await account.execute([{
+        contractAddress: SHIELDED_POOL_ADDRESS,
+        entrypoint: "re_register",
+        calldata: [toHex(pkX), toHex(pkY)],
+      }]);
+      await provider.waitForTransaction(result.transaction_hash);
+      return result.transaction_hash;
+    },
+    [account, provider],
+  );
+
   /**
    * Combined multicall: register in ShieldedPool + claim a .veil name.
    * Both calls are submitted in a single transaction - one wallet confirmation.
@@ -188,6 +202,7 @@ export function useShieldedPool() {
 
   return {
     register,
+    reRegister,
     registerWithName,
     deposit,
     transfer,

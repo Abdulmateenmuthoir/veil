@@ -13,6 +13,11 @@ pub trait IShieldedPool<TContractState> {
     /// Register an ElGamal public key and bind it to the caller's address.
     fn register(ref self: TContractState, pk_x: felt252, pk_y: felt252);
 
+    /// Re-register with a new ElGamal key pair. Caller must already be bound.
+    /// Clears the old key binding and resets the balance to zero.
+    /// Use this when the client-side private key is lost.
+    fn re_register(ref self: TContractState, pk_x: felt252, pk_y: felt252);
+
     /// Deposit ERC20 into the pool. Caller provides plaintext amount and
     /// the new accumulated encrypted balance (old_balance + Enc(amount)).
     fn deposit(
@@ -198,6 +203,43 @@ pub mod ShieldedPool {
             self.balance_c2_y.write(pk_hash, 0);
 
             self.emit(Registered { pk_hash, address: caller });
+        }
+
+        /// Re-register with a new ElGamal key pair.
+        /// Caller must already have a bound address. Clears the old key and
+        /// resets the encrypted balance to zero (old balance is unrecoverable
+        /// without the old private key).
+        fn re_register(ref self: ContractState, pk_x: felt252, pk_y: felt252) {
+            let caller = get_caller_address();
+            let caller_felt: felt252 = caller.into();
+            let old_pk_hash = self.address_to_pk_hash.read(caller_felt);
+
+            // Caller must already be registered.
+            assert(old_pk_hash != 0, 'NOT_REGISTERED');
+
+            let new_pk_hash = hash_pk(pk_x, pk_y);
+
+            // New key must not already belong to someone else.
+            assert(!self.registered.read(new_pk_hash), 'ALREADY_REGISTERED');
+
+            // Clear old key mappings.
+            self.registered.write(old_pk_hash, false);
+            self.pk_to_address.write(old_pk_hash, starknet::contract_address_const::<0>());
+            self.balance_c1_x.write(old_pk_hash, 0);
+            self.balance_c1_y.write(old_pk_hash, 0);
+            self.balance_c2_x.write(old_pk_hash, 0);
+            self.balance_c2_y.write(old_pk_hash, 0);
+
+            // Bind new key.
+            self.registered.write(new_pk_hash, true);
+            self.pk_to_address.write(new_pk_hash, caller);
+            self.address_to_pk_hash.write(caller_felt, new_pk_hash);
+            self.balance_c1_x.write(new_pk_hash, 0);
+            self.balance_c1_y.write(new_pk_hash, 0);
+            self.balance_c2_x.write(new_pk_hash, 0);
+            self.balance_c2_y.write(new_pk_hash, 0);
+
+            self.emit(Registered { pk_hash: new_pk_hash, address: caller });
         }
 
         /// Deposit plaintext ERC20 into the shielded pool.
