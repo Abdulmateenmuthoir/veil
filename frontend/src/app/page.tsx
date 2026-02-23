@@ -119,22 +119,6 @@ export default function Home() {
       .finally(() => setExistingNameChecked(true));
   }, [regChecked, registered, account?.address, getNameForAddress]);
 
-  // Poll chain every 30 s to detect incoming transfers while the user is idle.
-  useEffect(() => {
-    if (!registered || !keys || balanceLoading) return;
-    const id = setInterval(async () => {
-      try {
-        const expected = decryptedBalanceRef.current;
-        const bal = await fetchBalance(keys.publicKey.x, keys.publicKey.y);
-        const chainBal = await syncFromChain(bal.c1x, bal.c1y, bal.c2x, bal.c2y);
-        if (chainBal > expected) {
-          addTx("receive", formatWei(chainBal - expected));
-        }
-      } catch { /* ignore transient errors */ }
-    }, 30_000);
-    return () => clearInterval(id);
-  }, [registered, keys, balanceLoading, fetchBalance, syncFromChain, addTx]);
-
   // Debounced name availability check.
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -181,6 +165,22 @@ export default function Home() {
     },
     [],
   );
+
+  // Poll chain every 30 s to detect incoming transfers while the user is idle.
+  useEffect(() => {
+    if (!registered || !keys || balanceLoading) return;
+    const id = setInterval(async () => {
+      try {
+        const expected = decryptedBalanceRef.current;
+        const bal = await fetchBalance(keys.publicKey.x, keys.publicKey.y);
+        const chainBal = await syncFromChain(bal.c1x, bal.c1y, bal.c2x, bal.c2y);
+        if (chainBal > expected) {
+          addTx("receive", formatWei(chainBal - expected));
+        }
+      } catch { /* ignore transient errors */ }
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [registered, keys, balanceLoading, fetchBalance, syncFromChain, addTx]);
 
   // Sync balance from chain after any on-chain operation.
   // Pass expectedBalance (result of updateLocal) to detect incoming transfers.
