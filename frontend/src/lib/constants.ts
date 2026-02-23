@@ -1,8 +1,8 @@
 /** Contract addresses - update after deploying to Sepolia. */
-export const SHIELDED_POOL_ADDRESS = "0xca7ffa5e71ae8e275b153de94b8f8dffbd1613c2df2825b4422e51003b3621";
+export const SHIELDED_POOL_ADDRESS = "0x1c7fed35dcd2c5dd29b69f45bed15ce28491656b082191a7ccedc8029cf48bb";
 export const ERC20_TOKEN_ADDRESS = "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"; // Sepolia STRK
 /** VeilNameRegistry - update after running scripts/deploy-registry.mjs */
-export const VEIL_NAME_REGISTRY_ADDRESS = "0x4b8cf620331d2d0488d769928c0c2c98b1268ab331919b591136973444f7c6b";
+export const VEIL_NAME_REGISTRY_ADDRESS = "0xc81ee86c17a6d17257523f2db5681e59ad04098cf1b9c4e1a6d12083f5c991";
 
 /** LocalStorage keys. */
 export const LS_ELGAMAL_PRIVATE_KEY = "veil_elgamal_sk";

@@ -32,6 +32,9 @@ pub trait IVeilNameRegistry<TContractState> {
 
     /// Check whether a name is already taken.
     fn is_name_taken(self: @TContractState, name: felt252) -> bool;
+
+    /// Owner-only: release a name and its address binding so it can be re-registered.
+    fn owner_release_name(ref self: TContractState, address: starknet::ContractAddress);
 }
 
 #[starknet::contract]
@@ -53,6 +56,8 @@ pub mod VeilNameRegistry {
     struct Storage {
         /// Address of the ShieldedPool contract, queried to verify registration.
         shielded_pool: ContractAddress,
+        /// Owner address for admin functions.
+        owner: ContractAddress,
         /// name (felt252 short string) → ElGamal pk_x
         name_to_pk_x: Map<felt252, felt252>,
         /// name (felt252 short string) → ElGamal pk_y
@@ -87,8 +92,9 @@ pub mod VeilNameRegistry {
     // ────────────────────────────────────────────
 
     #[constructor]
-    fn constructor(ref self: ContractState, shielded_pool: ContractAddress) {
+    fn constructor(ref self: ContractState, shielded_pool: ContractAddress, owner: ContractAddress) {
         self.shielded_pool.write(shielded_pool);
+        self.owner.write(owner);
     }
 
     // ────────────────────────────────────────────
@@ -136,6 +142,17 @@ pub mod VeilNameRegistry {
 
         fn is_name_taken(self: @ContractState, name: felt252) -> bool {
             self.name_taken.read(name)
+        }
+
+        fn owner_release_name(ref self: ContractState, address: ContractAddress) {
+            assert(get_caller_address() == self.owner.read(), 'NOT_OWNER');
+            let addr_felt: felt252 = address.into();
+            let name = self.address_to_name.read(addr_felt);
+            assert(name != 0, 'NO_NAME_FOUND');
+            self.address_to_name.write(addr_felt, 0);
+            self.name_to_pk_x.write(name, 0);
+            self.name_to_pk_y.write(name, 0);
+            self.name_taken.write(name, false);
         }
     }
 }

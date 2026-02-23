@@ -18,6 +18,9 @@ pub trait IShieldedPool<TContractState> {
     /// Use this when the client-side private key is lost.
     fn re_register(ref self: TContractState, pk_x: felt252, pk_y: felt252);
 
+    /// Owner-only: deregister any user by their public key and free their address binding.
+    fn owner_deregister(ref self: TContractState, pk_x: felt252, pk_y: felt252);
+
     /// Deposit ERC20 into the pool. Caller provides plaintext amount and
     /// the new accumulated encrypted balance (old_balance + Enc(amount)).
     fn deposit(
@@ -240,6 +243,23 @@ pub mod ShieldedPool {
             self.balance_c2_y.write(new_pk_hash, 0);
 
             self.emit(Registered { pk_hash: new_pk_hash, address: caller });
+        }
+
+        /// Owner-only: forcefully deregister any user and free their address binding.
+        /// Used for admin resets. Any shielded balance is forfeited.
+        fn owner_deregister(ref self: ContractState, pk_x: felt252, pk_y: felt252) {
+            assert(get_caller_address() == self.owner.read(), 'NOT_OWNER');
+            let pk_hash = hash_pk(pk_x, pk_y);
+            assert(self.registered.read(pk_hash), 'NOT_REGISTERED');
+            let bound_address = self.pk_to_address.read(pk_hash);
+            let bound_felt: felt252 = bound_address.into();
+            self.registered.write(pk_hash, false);
+            self.pk_to_address.write(pk_hash, starknet::contract_address_const::<0>());
+            self.address_to_pk_hash.write(bound_felt, 0);
+            self.balance_c1_x.write(pk_hash, 0);
+            self.balance_c1_y.write(pk_hash, 0);
+            self.balance_c2_x.write(pk_hash, 0);
+            self.balance_c2_y.write(pk_hash, 0);
         }
 
         /// Deposit plaintext ERC20 into the shielded pool.

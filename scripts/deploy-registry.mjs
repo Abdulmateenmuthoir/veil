@@ -111,6 +111,7 @@ async function main() {
   console.log("Deploying VeilNameRegistry instance...");
   const constructorCalldata = CallData.compile({
     shielded_pool: SHIELDED_POOL_ADDRESS,
+    owner: ACCOUNT_ADDRESS,
   });
 
   const deployResponse = await account.deployContract({
