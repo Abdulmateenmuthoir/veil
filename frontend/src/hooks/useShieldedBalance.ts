@@ -213,10 +213,10 @@ export function useShieldedBalance(keys: ElGamalKeys | null) {
   );
 
   // Update local state from on-chain ciphertext.
-  // Returns a Promise so callers can await the decryption completing.
+  // Returns a Promise resolving to the newly decrypted balance (in wei).
   // Uses setTimeout(0) so React renders the loading spinner before BSGS runs.
   const syncFromChain = useCallback(
-    (c1x: bigint, c1y: bigint, c2x: bigint, c2y: bigint): Promise<void> => {
+    (c1x: bigint, c1y: bigint, c2x: bigint, c2y: bigint): Promise<bigint> => {
       setLoading(true);
       const isZeroCt = c1x === 0n && c1y === 0n && c2x === 0n && c2y === 0n;
       const ct: Ciphertext = isZeroCt
@@ -227,15 +227,16 @@ export function useShieldedBalance(keys: ElGamalKeys | null) {
           };
       setEncryptedBalance(ct);
 
-      return new Promise<void>((resolve) => {
+      return new Promise<bigint>((resolve) => {
         setTimeout(() => {
           try {
             // After first call the table is cached: subsequent runs are instant.
             const dec = decryptBalance(ct);
-            setDecryptedBalance(dec !== null ? dec * BALANCE_SCALE : 0n);
+            const newBal = dec !== null ? dec * BALANCE_SCALE : 0n;
+            setDecryptedBalance(newBal);
+            resolve(newBal);
           } finally {
             setLoading(false);
-            resolve();
           }
         }, 0);
       });
@@ -244,12 +245,14 @@ export function useShieldedBalance(keys: ElGamalKeys | null) {
   );
 
   // Update after a local operation (deposit/transfer/withdraw).
-  // With the cached table this is instant after the first syncFromChain.
+  // Returns the new decrypted balance so callers can detect incoming transfers.
   const updateLocal = useCallback(
-    (newCt: Ciphertext) => {
+    (newCt: Ciphertext): bigint => {
       setEncryptedBalance(newCt);
       const dec = decryptBalance(newCt);
-      setDecryptedBalance(dec !== null ? dec * BALANCE_SCALE : 0n);
+      const newBal = dec !== null ? dec * BALANCE_SCALE : 0n;
+      setDecryptedBalance(newBal);
+      return newBal;
     },
     [decryptBalance],
   );

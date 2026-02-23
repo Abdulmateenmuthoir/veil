@@ -1,10 +1,10 @@
 "use client";
 
-import { ArrowDownToLine, ArrowUpFromLine, Send, Clock } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Send, Clock, Inbox } from "lucide-react";
 
 export interface TxRecord {
   id: string;
-  type: "deposit" | "transfer" | "withdraw";
+  type: "deposit" | "transfer" | "withdraw" | "receive";
   amount: string;
   timestamp: number;
   txHash?: string;
@@ -18,12 +18,14 @@ const icons = {
   deposit: ArrowDownToLine,
   transfer: Send,
   withdraw: ArrowUpFromLine,
+  receive: Inbox,
 };
 
 const labels = {
   deposit: "Shielded",
   transfer: "Sent privately",
   withdraw: "Unshielded",
+  receive: "Received privately",
 };
 
 export default function TxHistory({ transactions }: TxHistoryProps) {
@@ -69,7 +71,7 @@ export default function TxHistory({ transactions }: TxHistoryProps) {
               </div>
               <div className="text-right">
                 <div className="text-sm font-mono">
-                  {tx.type === "withdraw" ? "-" : "+"}
+                  {tx.type === "deposit" || tx.type === "receive" ? "+" : "-"}
                   {tx.amount} STRK
                 </div>
                 {tx.txHash && (

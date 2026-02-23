@@ -1,0 +1,65 @@
+All clean. Summary of what was fixed in the transfer flow:
+
+
+  handleTransfer (page.tsx)
+  - if (wei > decryptedBalance) throw — prevents computing/submitting an overdraft that would wrap the EC point into an invalid ciphertext
+  - try { BigInt(recipientPkX/Y) } catch — surfaces "Invalid recipient public key format" instead of a cryptic JS SyntaxError
+  - await checkRegistered(rpkX, rpkY) before doing any crypto work — surfaces "Recipient is not registered on Veil" locally instead of paying gas for an        
+  on-chain revert
+
+  TransferModal
+  - Receives balance: bigint, shows "Available: X.XXXX STRK" above the amount field
+  - MAX button fills the input with the full balance
+  - Client-side wei > balance check gives an instant error before even calling onSubmitAll clean. Summary of what was fixed in the transfer flow:
+
+  handleTransfer (page.tsx)
+  - if (wei > decryptedBalance) throw — prevents computing/submitting an overdraft that would wrap the EC point into an invalid ciphertext
+  - try { BigInt(recipientPkX/Y) } catch — surfaces "Invalid recipient public key format" instead of a cryptic JS SyntaxError
+  - await checkRegistered(rpkX, rpkY) before doing any crypto work — surfaces "Recipient is not registered on Veil" locally instead of paying gas for an        
+  on-chain revert
+
+  TransferModal
+  - Receives balance: bigint, shows "Available: X.XXXX STRK" above the amount field
+  - MAX button fills the input with the full balance
+  - Client-side wei > balance check gives an instant error before even calling onSubmitAll clean. Summary of what was fixed in the transfer flow:
+
+  handleTransfer (page.tsx)
+  - if (wei > decryptedBalance) throw — prevents computing/submitting an overdraft that would wrap the EC point into an invalid ciphertext
+  - try { BigInt(recipientPkX/Y) } catch — surfaces "Invalid recipient public key format" instead of a cryptic JS SyntaxError
+  - await checkRegistered(rpkX, rpkY) before doing any crypto work — surfaces "Recipient is not registered on Veil" locally instead of paying gas for an        
+  on-chain revert
+
+  TransferModal
+  - Receives balance: bigint, shows "Available: X.XXXX STRK" above the amount field
+  - MAX button fills the input with the full balance
+  - Client-side wei > balance check gives an instant error before even calling onSubmitAll clean. Summary of what was fixed in the transfer flow:
+
+  handleTransfer (page.tsx)
+  - if (wei > decryptedBalance) throw — prevents computing/submitting an overdraft that would wrap the EC point into an invalid ciphertext
+  - try { BigInt(recipientPkX/Y) } catch — surfaces "Invalid recipient public key format" instead of a cryptic JS SyntaxError
+  - await checkRegistered(rpkX, rpkY) before doing any crypto work — surfaces "Recipient is not registered on Veil" locally instead of paying gas for an        
+  on-chain revert
+
+  TransferModal
+  - Receives balance: bigint, shows "Available: X.XXXX STRK" above the amount field
+  - MAX button fills the input with the full balance
+  - Client-side wei > balance check gives an instant error before even calling onSubmit
+
+  
+● 13/13 — all green. Here's what was confirmed end-to-end against live Sepolia:
+
+  Phase 1 — Crypto (offline)
+  - Keygen, encrypt/decrypt with BALANCE_SCALE, homomorphic add, homomorphic sub, wrong-key rejection
+
+  Phase 2 — Contract (live Sepolia)
+  - is_registered → register → tx confirmed
+  - get_encrypted_balance → decrypt → 0 STRK ✓
+  - approve + deposit 0.01 STRK → tx confirmed → decrypt on-chain balance → 0.01 STRK ✓
+  - withdraw 0.005 STRK → tx confirmed → decrypt on-chain balance → 0.005 STRK ✓
+
+  Also updated constants.ts to point at the clean 0x7481... contract (the same one the test just exercised).
+
+
+
+ 
+

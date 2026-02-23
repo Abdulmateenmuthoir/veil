@@ -122,17 +122,6 @@ export default function Home() {
     };
   }, [veilName, checkNameAvailable]);
 
-  // Sync balance from chain after any on-chain operation.
-  const refreshBalance = useCallback(async () => {
-    if (!keys) return;
-    try {
-      const bal = await fetchBalance(keys.publicKey.x, keys.publicKey.y);
-      await syncFromChain(bal.c1x, bal.c1y, bal.c2x, bal.c2y);
-    } catch (err) {
-      console.error("Failed to refresh balance:", err);
-    }
-  }, [keys, fetchBalance, syncFromChain]);
-
   const addTx = useCallback(
     (type: TxRecord["type"], amount: string, txHash?: string) => {
       setTransactions((prev) => {
@@ -152,6 +141,22 @@ export default function Home() {
     },
     [],
   );
+
+  // Sync balance from chain after any on-chain operation.
+  // Pass expectedBalance (result of updateLocal) to detect incoming transfers.
+  const refreshBalance = useCallback(async (expectedBalance?: bigint) => {
+    if (!keys) return;
+    try {
+      const bal = await fetchBalance(keys.publicKey.x, keys.publicKey.y);
+      const chainBalance = await syncFromChain(bal.c1x, bal.c1y, bal.c2x, bal.c2y);
+      if (expectedBalance !== undefined && chainBalance > expectedBalance) {
+        const received = chainBalance - expectedBalance;
+        addTx("receive", formatWei(received));
+      }
+    } catch (err) {
+      console.error("Failed to refresh balance:", err);
+    }
+  }, [keys, fetchBalance, syncFromChain, addTx]);
 
   // ── Handlers ──
 
@@ -194,9 +199,9 @@ export default function Home() {
 
       const txHash = await deposit(wei, serialized);
 
-      updateLocal(newBalance);
+      const expectedBalance = updateLocal(newBalance);
       addTx("deposit", amount, txHash);
-      await refreshBalance();
+      await refreshBalance(expectedBalance);
     },
     [keys, computeDeposit, deposit, updateLocal, addTx, refreshBalance],
   );
@@ -212,9 +217,9 @@ export default function Home() {
 
       const txHash = await withdraw(wei, serialized, proofHash, nullifier);
 
-      updateLocal(newBalance);
+      const expectedBalance = updateLocal(newBalance);
       addTx("withdraw", amount, txHash);
-      await refreshBalance();
+      await refreshBalance(expectedBalance);
     },
     [
       keys,
@@ -264,9 +269,9 @@ export default function Home() {
         nullifier,
       );
 
-      updateLocal(newSenderBalance);
+      const expectedBalance = updateLocal(newSenderBalance);
       addTx("transfer", amount, txHash);
-      await refreshBalance();
+      await refreshBalance(expectedBalance);
     },
     [
       keys,
@@ -469,4 +474,12 @@ function parseEther(value: string): bigint {
   const [whole, frac = ""] = value.split(".");
   const fracPadded = frac.padEnd(18, "0").slice(0, 18);
   return BigInt(whole || "0") * 10n ** 18n + BigInt(fracPadded);
+}
+
+function formatWei(wei: bigint): string {
+  const whole = wei / 10n ** 18n;
+  const frac = wei % 10n ** 18n;
+  if (frac === 0n) return whole.toString();
+  const fracStr = frac.toString().padStart(18, "0").replace(/0+$/, "");
+  return `${whole}.${fracStr}`;
 }
