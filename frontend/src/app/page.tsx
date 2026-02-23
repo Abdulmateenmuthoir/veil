@@ -30,6 +30,7 @@ export default function Home() {
   } = useShieldedBalance(keys);
   const { nextNullifier, nextProofHash } = useNonce();
   const {
+    register,
     registerWithName,
     deposit,
     transfer,
@@ -58,6 +59,7 @@ export default function Home() {
     "idle" | "invalid" | "checking" | "available" | "taken"
   >("idle");
   const [myVeilName, setMyVeilName] = useState("");
+  const [existingVeilName, setExistingVeilName] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Check registration status + sync balance when keys are available.
@@ -94,6 +96,15 @@ export default function Home() {
       .then((name) => { if (name) setMyVeilName(name); })
       .catch(() => {});
   }, [registered, account?.address, getNameForAddress]);
+
+  // When not registered, check if this wallet address already has a .veil name
+  // (e.g. user cleared localStorage but previously registered on-chain).
+  useEffect(() => {
+    if (!regChecked || registered || !account?.address) return;
+    getNameForAddress(account.address)
+      .then((name) => { if (name) setExistingVeilName(name); })
+      .catch(() => {});
+  }, [regChecked, registered, account?.address, getNameForAddress]);
 
   // Debounced name availability check.
   useEffect(() => {
@@ -161,13 +172,20 @@ export default function Home() {
   // ── Handlers ──
 
   const handleRegister = useCallback(async () => {
-    if (!keys || nameStatus !== "available") return;
+    if (!keys) return;
+    if (!existingVeilName && nameStatus !== "available") return;
     setRegistering(true);
     setRegError(null);
+    const nameToSet = existingVeilName || veilName;
     try {
-      await registerWithName(keys.publicKey.x, keys.publicKey.y, veilName);
+      if (existingVeilName) {
+        // Address already has a .veil name — just register new keys in the pool.
+        await register(keys.publicKey.x, keys.publicKey.y);
+      } else {
+        await registerWithName(keys.publicKey.x, keys.publicKey.y, veilName);
+      }
       setRegistered(true);
-      setMyVeilName(veilName);
+      setMyVeilName(nameToSet);
       await refreshBalance();
     } catch (err) {
       console.error("Registration failed:", err);
@@ -177,7 +195,7 @@ export default function Home() {
         const isReg = await checkRegistered(keys.publicKey.x, keys.publicKey.y);
         if (isReg) {
           setRegistered(true);
-          setMyVeilName(veilName);
+          setMyVeilName(nameToSet);
           await refreshBalance();
           return;
         }
@@ -189,7 +207,7 @@ export default function Home() {
     } finally {
       setRegistering(false);
     }
-  }, [keys, nameStatus, veilName, registerWithName, checkRegistered, refreshBalance]);
+  }, [keys, existingVeilName, nameStatus, veilName, register, registerWithName, checkRegistered, refreshBalance]);
 
   const handleDeposit = useCallback(
     async (amount: string) => {
@@ -364,36 +382,53 @@ export default function Home() {
         <main className="min-h-screen flex items-center justify-center px-4 pt-20">
           <div className="glow-card rounded-2xl bg-card border border-border p-8 max-w-lg mx-auto text-center">
             <img src="/veil-logo.svg" alt="Veil" className="w-16 h-16 rounded-2xl mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Claim Your .veil Identity</h2>
-            <p className="text-muted text-sm leading-relaxed mb-6 max-w-sm mx-auto">
-              Pick a name like <span className="text-accent font-mono">pious.veil</span> - others can
-              send to you privately using just this name.
-            </p>
 
-            {/* Name input */}
-            <div className="mb-6 text-left">
-              <label className="text-sm text-muted mb-1.5 block">Your .veil name</label>
-              <div className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                  <AtSign className="w-4 h-4 text-muted" />
+            {existingVeilName ? (
+              <>
+                <h2 className="text-xl font-semibold mb-2">Restore Shielded Identity</h2>
+                <p className="text-muted text-sm leading-relaxed mb-6 max-w-sm mx-auto">
+                  Your address already owns{" "}
+                  <span className="text-accent font-mono">{existingVeilName}.veil</span>.
+                  Register your new keys to restore access.
+                </p>
+                <div className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent/10 border border-accent/20 mb-6">
+                  <AtSign className="w-4 h-4 text-accent flex-shrink-0" />
+                  <span className="text-sm font-mono text-accent font-medium">{existingVeilName}.veil</span>
                 </div>
-                <input
-                  type="text"
-                  value={veilName}
-                  onChange={(e) => setVeilName(e.target.value.toLowerCase())}
-                  placeholder="pious"
-                  maxLength={31}
-                  className="w-full pl-10 pr-20 py-3 rounded-xl bg-background border border-border focus:border-accent focus:outline-none text-sm font-mono placeholder:text-muted/40"
-                />
-                <div className="absolute right-14 top-1/2 -translate-y-1/2">
-                  {nameStatusIcon()}
+              </>
+            ) : (
+              <>
+                <h2 className="text-xl font-semibold mb-2">Claim Your .veil Identity</h2>
+                <p className="text-muted text-sm leading-relaxed mb-6 max-w-sm mx-auto">
+                  Pick a name like <span className="text-accent font-mono">pious.veil</span> - others can
+                  send to you privately using just this name.
+                </p>
+                {/* Name input */}
+                <div className="mb-6 text-left">
+                  <label className="text-sm text-muted mb-1.5 block">Your .veil name</label>
+                  <div className="relative">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                      <AtSign className="w-4 h-4 text-muted" />
+                    </div>
+                    <input
+                      type="text"
+                      value={veilName}
+                      onChange={(e) => setVeilName(e.target.value.toLowerCase())}
+                      placeholder="pious"
+                      maxLength={31}
+                      className="w-full pl-10 pr-20 py-3 rounded-xl bg-background border border-border focus:border-accent focus:outline-none text-sm font-mono placeholder:text-muted/40"
+                    />
+                    <div className="absolute right-14 top-1/2 -translate-y-1/2">
+                      {nameStatusIcon()}
+                    </div>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted font-mono">
+                      .veil
+                    </div>
+                  </div>
+                  <p className="mt-1.5 text-xs">{nameHint()}</p>
                 </div>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted font-mono">
-                  .veil
-                </div>
-              </div>
-              <p className="mt-1.5 text-xs">{nameHint()}</p>
-            </div>
+              </>
+            )}
 
             <KeyInfo keys={keys} onClear={clearKeys} />
 
@@ -405,7 +440,7 @@ export default function Home() {
 
             <button
               onClick={handleRegister}
-              disabled={registering || nameStatus !== "available"}
+              disabled={registering || (!existingVeilName && nameStatus !== "available")}
               className="w-full mt-6 flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-accent hover:bg-accent-hover text-white font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {registering ? (
@@ -460,8 +495,6 @@ export default function Home() {
             disabled={!keys}
             shieldedBalance={decryptedBalance}
           />
-
-          <KeyInfo keys={keys} onClear={clearKeys} />
 
           <TxHistory transactions={transactions} />
         </div>
