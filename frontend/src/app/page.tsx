@@ -60,6 +60,7 @@ export default function Home() {
   >("idle");
   const [myVeilName, setMyVeilName] = useState("");
   const [existingVeilName, setExistingVeilName] = useState("");
+  const [existingNameChecked, setExistingNameChecked] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Check registration status + sync balance when keys are available.
@@ -101,9 +102,11 @@ export default function Home() {
   // (e.g. user cleared localStorage but previously registered on-chain).
   useEffect(() => {
     if (!regChecked || registered || !account?.address) return;
+    setExistingNameChecked(false);
     getNameForAddress(account.address)
       .then((name) => { if (name) setExistingVeilName(name); })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setExistingNameChecked(true));
   }, [regChecked, registered, account?.address, getNameForAddress]);
 
   // Debounced name availability check.
@@ -176,9 +179,15 @@ export default function Home() {
     if (!existingVeilName && nameStatus !== "available") return;
     setRegistering(true);
     setRegError(null);
-    const nameToSet = existingVeilName || veilName;
+    // Re-fetch on-chain name at submit time to guard against the race where
+    // the check hadn't resolved yet when the button became enabled.
+    let resolvedExisting = existingVeilName;
+    if (!resolvedExisting && account?.address) {
+      try { resolvedExisting = await getNameForAddress(account.address); } catch {}
+    }
+    const nameToSet = resolvedExisting || veilName;
     try {
-      if (existingVeilName) {
+      if (resolvedExisting) {
         // Address already has a .veil name — just register new keys in the pool.
         await register(keys.publicKey.x, keys.publicKey.y);
       } else {
@@ -207,7 +216,7 @@ export default function Home() {
     } finally {
       setRegistering(false);
     }
-  }, [keys, existingVeilName, nameStatus, veilName, register, registerWithName, checkRegistered, refreshBalance]);
+  }, [keys, existingVeilName, account?.address, getNameForAddress, nameStatus, veilName, register, registerWithName, checkRegistered, refreshBalance]);
 
   const handleDeposit = useCallback(
     async (amount: string) => {
@@ -440,7 +449,7 @@ export default function Home() {
 
             <button
               onClick={handleRegister}
-              disabled={registering || (!existingVeilName && nameStatus !== "available")}
+              disabled={registering || !existingNameChecked || (!existingVeilName && nameStatus !== "available")}
               className="w-full mt-6 flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-accent hover:bg-accent-hover text-white font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {registering ? (
