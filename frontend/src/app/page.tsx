@@ -14,7 +14,7 @@ import { useShieldedBalance } from "@/hooks/useShieldedBalance";
 import { useNonce } from "@/hooks/useNonce";
 import { useShieldedPool } from "@/hooks/useShieldedPool";
 import { useVeilName, validateVeilName } from "@/hooks/useVeilName";
-import { LS_TX_HISTORY } from "@/lib/constants";
+import { LS_TX_HISTORY, LS_TX_HISTORY_POOL, SHIELDED_POOL_ADDRESS } from "@/lib/constants";
 
 export default function Home() {
   const { isConnected, account } = useAccount();
@@ -42,6 +42,13 @@ export default function Home() {
 
   const [transactions, setTransactions] = useState<TxRecord[]>(() => {
     try {
+      // Clear history if it belongs to a different contract deployment.
+      const savedPool = localStorage.getItem(LS_TX_HISTORY_POOL);
+      if (savedPool !== SHIELDED_POOL_ADDRESS) {
+        localStorage.removeItem(LS_TX_HISTORY);
+        localStorage.setItem(LS_TX_HISTORY_POOL, SHIELDED_POOL_ADDRESS);
+        return [];
+      }
       const saved = localStorage.getItem(LS_TX_HISTORY);
       return saved ? (JSON.parse(saved) as TxRecord[]) : [];
     } catch {
