@@ -33,26 +33,37 @@ interface Ciphertext {
 let _bsgsTable: Map<string, bigint> | null = null;
 let _bsgsM: bigint = 0n;
 let _bsgsMG: InstanceType<typeof Point> | null = null;
+let _bsgsReady: Promise<void> | null = null;
 
-function buildBsgsTable(): void {
-  if (_bsgsTable) return; // already built
-  const m = isqrt(BSGS_MAX) + 1n;
-  const table = new Map<string, bigint>();
-  let current: InstanceType<typeof Point> = ZERO;
-  for (let j = 0n; j < m; j++) {
-    table.set(pointKey(current), j);
-    current = current.add(G);
-  }
-  _bsgsTable = table;
-  _bsgsM = m;
-  _bsgsMG = G.multiply(m);
+// Build the table asynchronously in chunks so the main thread stays
+// responsive during the ~262K elliptic-curve point additions.
+const BSGS_CHUNK = 8192;
+
+function startBsgsTable(): Promise<void> {
+  if (_bsgsReady) return _bsgsReady;
+  _bsgsReady = (async () => {
+    if (_bsgsTable) return;
+    const m = isqrt(BSGS_MAX) + 1n;
+    const table = new Map<string, bigint>();
+    let current: InstanceType<typeof Point> = ZERO;
+    let count = 0;
+    for (let j = 0n; j < m; j++) {
+      table.set(pointKey(current), j);
+      current = current.add(G);
+      if (++count % BSGS_CHUNK === 0) {
+        await new Promise<void>((r) => setTimeout(r, 0));
+      }
+    }
+    _bsgsTable = table;
+    _bsgsM = m;
+    _bsgsMG = G.multiply(m);
+  })();
+  return _bsgsReady;
 }
 
 function babyStepGiantStep(
   target: InstanceType<typeof Point>,
 ): bigint | null {
-  // Build table synchronously if not yet ready (first call only).
-  if (!_bsgsTable) buildBsgsTable();
   const table = _bsgsTable!;
   const m = _bsgsM;
   const mG = _bsgsMG!;
@@ -80,13 +91,8 @@ export function useShieldedBalance(keys: ElGamalKeys | null) {
   const [decryptedBalance, setDecryptedBalance] = useState<bigint>(0n);
   const [loading, setLoading] = useState(false);
 
-  // Kick off table precomputation as soon as possible so it is ready
-  // by the time the user connects their wallet.
-  useEffect(() => {
-    if (_bsgsTable) return;
-    const id = setTimeout(buildBsgsTable, 0);
-    return () => clearTimeout(id);
-  }, []);
+  // Kick off async table precomputation as soon as possible.
+  useEffect(() => { startBsgsTable(); }, []);
 
   // Encrypt an amount (in wei) under the user's public key.
   // Internally encodes as gwei (amount / BALANCE_SCALE) so BSGS can decrypt.
@@ -228,9 +234,9 @@ export function useShieldedBalance(keys: ElGamalKeys | null) {
       setEncryptedBalance(ct);
 
       return new Promise<bigint>((resolve) => {
-        setTimeout(() => {
+        setTimeout(async () => {
           try {
-            // After first call the table is cached: subsequent runs are instant.
+            await startBsgsTable(); // no-op if already built
             const dec = decryptBalance(ct);
             const newBal = dec !== null ? dec * BALANCE_SCALE : 0n;
             setDecryptedBalance(newBal);

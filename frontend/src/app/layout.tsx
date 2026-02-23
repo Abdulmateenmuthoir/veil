@@ -50,9 +50,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <head>
+      <head suppressHydrationWarning>
         <link rel="icon" href="/veil-logo.svg" type="image/svg+xml" />
-        <script dangerouslySetInnerHTML={{ __html: suppressExtensionErrors }} />
+        <script suppressHydrationWarning dangerouslySetInnerHTML={{ __html: suppressExtensionErrors }} />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground min-h-screen`}
