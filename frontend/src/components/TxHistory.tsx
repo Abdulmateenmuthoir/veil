@@ -1,6 +1,9 @@
 "use client";
 
-import { ArrowDownToLine, ArrowUpFromLine, Send, Clock, Inbox } from "lucide-react";
+import { useState } from "react";
+import { ArrowDownToLine, ArrowUpFromLine, Send, Clock, Inbox, ChevronDown, ChevronUp } from "lucide-react";
+
+const PAGE_SIZE = 3;
 
 export interface TxRecord {
   id: string;
@@ -29,6 +32,10 @@ const labels = {
 };
 
 export default function TxHistory({ transactions }: TxHistoryProps) {
+  const [visible, setVisible] = useState(PAGE_SIZE);
+  const shown = transactions.slice(0, visible);
+  const hasMore = visible < transactions.length;
+
   if (transactions.length === 0) {
     return (
       <div className="glow-card rounded-2xl bg-card border border-border p-6">
@@ -51,7 +58,7 @@ export default function TxHistory({ transactions }: TxHistoryProps) {
       </div>
 
       <div className="space-y-3">
-        {transactions.map((tx) => {
+        {shown.map((tx) => {
           const Icon = icons[tx.type];
           return (
             <div
@@ -89,6 +96,26 @@ export default function TxHistory({ transactions }: TxHistoryProps) {
           );
         })}
       </div>
+
+      {hasMore && (
+        <button
+          onClick={() => setVisible((v) => v + PAGE_SIZE)}
+          className="mt-4 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-border text-sm text-muted hover:text-foreground hover:bg-card-hover transition-colors"
+        >
+          <ChevronDown className="w-4 h-4" />
+          Show more ({transactions.length - visible} remaining)
+        </button>
+      )}
+
+      {!hasMore && transactions.length > PAGE_SIZE && (
+        <button
+          onClick={() => setVisible(PAGE_SIZE)}
+          className="mt-4 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-border text-sm text-muted hover:text-foreground hover:bg-card-hover transition-colors"
+        >
+          <ChevronUp className="w-4 h-4" />
+          Show less
+        </button>
+      )}
     </div>
   );
 }
