@@ -7,8 +7,26 @@ import { SHIELDED_POOL_ADDRESS, ERC20_TOKEN_ADDRESS, VEIL_NAME_REGISTRY_ADDRESS 
 import { strToFelt252 } from "@/hooks/useVeilName";
 
 const SEPOLIA_RPC = "https://starknet-sepolia.infura.io/v3/be6b7a09f96f42b8ad45edfbeef94df5";
+const SEPOLIA_RPC_FALLBACK = "https://free-rpc.nethermind.io/sepolia-juno/";
 
 const toHex = (n: bigint): string => "0x" + n.toString(16);
+
+/** Retry a call up to `attempts` times, then try the fallback provider. */
+async function withRetry<T>(
+  primary: () => Promise<T>,
+  fallback: () => Promise<T>,
+  attempts = 3,
+): Promise<T> {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await primary();
+    } catch (err) {
+      if (i === attempts - 1) break;
+      await new Promise((r) => setTimeout(r, 600 * (i + 1)));
+    }
+  }
+  return fallback();
+}
 
 /**
  * Handles all on-chain interactions with the ShieldedPool contract.
@@ -18,17 +36,19 @@ export function useShieldedPool() {
   const { account } = useAccount();
 
   const provider = useMemo(() => new RpcProvider({ nodeUrl: SEPOLIA_RPC }), []);
+  const fallbackProvider = useMemo(() => new RpcProvider({ nodeUrl: SEPOLIA_RPC_FALLBACK }), []);
 
   // ── View calls (via provider.callContract) ──
 
   const fetchBalance = useCallback(
     async (pkX: bigint, pkY: bigint) => {
-      const result = await provider.callContract({
-        contractAddress: SHIELDED_POOL_ADDRESS,
-        entrypoint: "get_encrypted_balance",
-        calldata: [toHex(pkX), toHex(pkY)],
-      });
-      // Result is an array of felt252 hex strings
+      const call = (p: typeof provider) =>
+        p.callContract({
+          contractAddress: SHIELDED_POOL_ADDRESS,
+          entrypoint: "get_encrypted_balance",
+          calldata: [toHex(pkX), toHex(pkY)],
+        });
+      const result = await withRetry(() => call(provider), () => call(fallbackProvider));
       return {
         c1x: BigInt(result[0]),
         c1y: BigInt(result[1]),
@@ -36,20 +56,21 @@ export function useShieldedPool() {
         c2y: BigInt(result[3]),
       };
     },
-    [provider],
+    [provider, fallbackProvider],
   );
 
   const checkRegistered = useCallback(
     async (pkX: bigint, pkY: bigint): Promise<boolean> => {
-      const result = await provider.callContract({
-        contractAddress: SHIELDED_POOL_ADDRESS,
-        entrypoint: "is_registered",
-        calldata: [toHex(pkX), toHex(pkY)],
-      });
-      // bool: 0 = false, 1 = true
+      const call = (p: typeof provider) =>
+        p.callContract({
+          contractAddress: SHIELDED_POOL_ADDRESS,
+          entrypoint: "is_registered",
+          calldata: [toHex(pkX), toHex(pkY)],
+        });
+      const result = await withRetry(() => call(provider), () => call(fallbackProvider));
       return BigInt(result[0]) !== 0n;
     },
-    [provider],
+    [provider, fallbackProvider],
   );
 
   // ── Write calls (via account.execute) ──
