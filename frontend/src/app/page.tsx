@@ -18,7 +18,7 @@ import { LS_TX_HISTORY, LS_TX_HISTORY_POOL, SHIELDED_POOL_ADDRESS } from "@/lib/
 
 export default function Home() {
   const { isConnected, account } = useAccount();
-  const { keys, loading: keysLoading, generateKeys, clearKeys } = useElGamalKey();
+  const { keys, loading: keysLoading, deriving, deriveError, deriveKeys, clearKeys } = useElGamalKey();
   const {
     decryptedBalance,
     loading: balanceLoading,
@@ -388,7 +388,12 @@ export default function Home() {
       <>
         <Navbar />
         <main className="min-h-screen flex items-center justify-center px-4 pt-20">
-          <KeySetup keys={keys} onGenerate={generateKeys} />
+          <KeySetup
+            keys={keys}
+            onGenerate={() => { if (account) deriveKeys(account); }}
+            deriving={deriving}
+            deriveError={deriveError}
+          />
         </main>
       </>
     );
