@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Send, Loader2, AtSign, Clock } from "lucide-react";
+import { Send, Loader2, AtSign, Clock, ChevronDown, ChevronUp } from "lucide-react";
+
+const RECENT_PAGE = 3;
 import Modal from "./Modal";
 import { useVeilName, validateVeilName } from "@/hooks/useVeilName";
 import { LS_RECENT_RECIPIENTS } from "@/lib/constants";
@@ -43,6 +45,7 @@ export default function TransferModal({ onClose, onSubmit, balance }: TransferMo
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [recentRecipients, setRecentRecipients] = useState<string[]>([]);
+  const [recentVisible, setRecentVisible] = useState(RECENT_PAGE);
 
   const { resolveName } = useVeilName();
 
@@ -117,7 +120,7 @@ export default function TransferModal({ onClose, onSubmit, balance }: TransferMo
                 <span className="text-xs text-muted font-medium">Recents</span>
               </div>
               <div className="flex flex-col divide-y divide-border rounded-xl overflow-hidden border border-border">
-                {recentRecipients.map((name) => (
+                {recentRecipients.slice(0, recentVisible).map((name) => (
                   <button
                     key={name}
                     type="button"
@@ -131,6 +134,28 @@ export default function TransferModal({ onClose, onSubmit, balance }: TransferMo
                   </button>
                 ))}
               </div>
+
+              {recentVisible < recentRecipients.length && (
+                <button
+                  type="button"
+                  onClick={() => setRecentVisible((v) => v + RECENT_PAGE)}
+                  className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl border border-border text-xs text-muted hover:text-foreground hover:bg-card-hover transition-colors"
+                >
+                  <ChevronDown className="w-3.5 h-3.5" />
+                  Show more ({recentRecipients.length - recentVisible} remaining)
+                </button>
+              )}
+
+              {recentVisible > RECENT_PAGE && recentVisible >= recentRecipients.length && (
+                <button
+                  type="button"
+                  onClick={() => setRecentVisible(RECENT_PAGE)}
+                  className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl border border-border text-xs text-muted hover:text-foreground hover:bg-card-hover transition-colors"
+                >
+                  <ChevronUp className="w-3.5 h-3.5" />
+                  Show less
+                </button>
+              )}
             </div>
           )}
         </div>
