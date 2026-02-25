@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+/* Dark mode (default) */
 :root {
   --background: #0a0a0f;
   --foreground: #e4e4e7;
@@ -12,6 +13,21 @@
   --success: #22c55e;
   --danger: #ef4444;
   --muted: #71717a;
+}
+
+/* Light mode */
+html.light {
+  --background: #f5f5fa;
+  --foreground: #18181b;
+  --card: #ffffff;
+  --card-hover: #ededf5;
+  --border: #dddde8;
+  --accent: #7c3aed;
+  --accent-hover: #6d28d9;
+  --accent-dim: rgba(124, 58, 237, 0.1);
+  --success: #16a34a;
+  --danger: #dc2626;
+  --muted: #6b7280;
 }
 
 @theme inline {
@@ -56,6 +72,12 @@ body {
 .glow-card:hover {
   box-shadow: 0 0 0 1px var(--accent),
     0 0 60px -10px rgba(139, 92, 246, 0.25);
+}
+html.light .glow-card {
+  box-shadow: 0 0 0 1px var(--border), 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+html.light .glow-card:hover {
+  box-shadow: 0 0 0 1px var(--accent), 0 4px 20px rgba(124, 58, 237, 0.12);
 }
 
 /* Gradient text */

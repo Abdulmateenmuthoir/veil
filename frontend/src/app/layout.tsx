@@ -19,9 +19,13 @@ export const metadata: Metadata = {
     "Confidential ERC20 transfers using ElGamal encryption and STARK proofs. Deposit, transfer, and withdraw privately.",
 };
 
-// Inline script to suppress extension errors before React hydrates.
+// Inline script: apply saved theme before hydration (prevents flash) + suppress extension errors.
 const suppressExtensionErrors = `
 (function(){
+  try{
+    var t=localStorage.getItem('veil-theme');
+    if(t==='light'){document.documentElement.classList.add('light');}
+  }catch(e){}
   var orig=window.onerror;
   window.onerror=function(m,s){
     if(s&&s.indexOf('chrome-extension://')!==-1)return true;
