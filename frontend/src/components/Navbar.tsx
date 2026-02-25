@@ -31,6 +31,7 @@ export default function Navbar() {
           {/* Theme toggle */}
           <button
             onClick={toggle}
+            title={theme === "dark" ? "Light mode" : "Dark mode"}
             className="p-2 rounded-lg hover:bg-card transition-colors text-muted hover:text-foreground"
             aria-label="Toggle theme"
           >
