@@ -11,3 +11,4 @@ export const LS_ELGAMAL_PUBLIC_KEY_Y = "veil_elgamal_pk_y";
 export const LS_NONCE_COUNTER = "veil_nonce_counter";
 export const LS_TX_HISTORY = "veil_tx_history";
 export const LS_TX_HISTORY_POOL = "veil_tx_history_pool";
+export const LS_RECENT_RECIPIENTS = "veil_recent_recipients";

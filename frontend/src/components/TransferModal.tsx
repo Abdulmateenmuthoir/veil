@@ -1,9 +1,29 @@
 "use client";
 
-import { useState } from "react";
-import { Send, Loader2, AtSign } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Send, Loader2, AtSign, Clock } from "lucide-react";
 import Modal from "./Modal";
 import { useVeilName, validateVeilName } from "@/hooks/useVeilName";
+import { LS_RECENT_RECIPIENTS } from "@/lib/constants";
+
+const MAX_RECENT = 5;
+
+function loadRecent(): string[] {
+  try {
+    const raw = localStorage.getItem(LS_RECENT_RECIPIENTS);
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecent(name: string) {
+  try {
+    const prev = loadRecent();
+    const next = [name, ...prev.filter((n) => n !== name)].slice(0, MAX_RECENT);
+    localStorage.setItem(LS_RECENT_RECIPIENTS, JSON.stringify(next));
+  } catch {}
+}
 
 interface TransferModalProps {
   onClose: () => void;
@@ -22,8 +42,13 @@ export default function TransferModal({ onClose, onSubmit, balance }: TransferMo
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [recentRecipients, setRecentRecipients] = useState<string[]>([]);
 
   const { resolveName } = useVeilName();
+
+  useEffect(() => {
+    setRecentRecipients(loadRecent());
+  }, []);
 
   const handleSubmit = async () => {
     if (!amount || parseFloat(amount) <= 0) {
@@ -55,6 +80,7 @@ export default function TransferModal({ onClose, onSubmit, balance }: TransferMo
       const pkX = "0x" + resolved.pkX.toString(16);
       const pkY = "0x" + resolved.pkY.toString(16);
       await onSubmit(pkX, pkY, amount);
+      saveRecent(name);
       onClose();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Transaction failed");
@@ -83,6 +109,30 @@ export default function TransferModal({ onClose, onSubmit, balance }: TransferMo
               .veil
             </div>
           </div>
+
+          {recentRecipients.length > 0 && (
+            <div className="mt-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Clock className="w-3.5 h-3.5 text-muted" />
+                <span className="text-xs text-muted font-medium">Recents</span>
+              </div>
+              <div className="flex flex-col divide-y divide-border rounded-xl overflow-hidden border border-border">
+                {recentRecipients.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => setRecipient(name)}
+                    className="flex items-center gap-3 px-4 py-3 bg-card hover:bg-card-hover transition-colors text-left"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-accent-dim border border-accent/20 flex items-center justify-center flex-shrink-0">
+                      <AtSign className="w-3.5 h-3.5 text-accent" />
+                    </div>
+                    <span className="text-sm font-mono text-foreground">{name}.veil</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div>
