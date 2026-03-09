@@ -6,27 +6,38 @@ import { LS_NONCE_COUNTER } from "@/lib/constants";
 
 /**
  * Manages the nonce counter for nullifier generation.
- * Persisted in localStorage.
+ * Persisted in localStorage, scoped per wallet address.
+ *
+ * @param accountAddress - The connected wallet address.
  */
-export function useNonce() {
+export function useNonce(accountAddress?: string) {
   const [counter, setCounter] = useState(0);
 
+  const lsKey = accountAddress
+    ? `${LS_NONCE_COUNTER}_${accountAddress}`
+    : LS_NONCE_COUNTER;
+
   useEffect(() => {
-    const stored = localStorage.getItem(LS_NONCE_COUNTER);
+    if (!accountAddress) {
+      setCounter(0);
+      return;
+    }
+    const stored = localStorage.getItem(lsKey);
     if (stored) setCounter(parseInt(stored, 10));
-  }, []);
+    else setCounter(0);
+  }, [lsKey, accountAddress]);
 
   const nextNullifier = useCallback(
     (privateKey: bigint, domain: "transfer" | "withdraw"): bigint => {
       const newCounter = counter + 1;
       setCounter(newCounter);
-      localStorage.setItem(LS_NONCE_COUNTER, newCounter.toString());
+      localStorage.setItem(lsKey, newCounter.toString());
 
       const domainTag = domain === "transfer" ? 1n : 2n;
       const inner = BigInt(pedersen(privateKey, BigInt(newCounter)));
       return BigInt(pedersen(inner, domainTag));
     },
-    [counter],
+    [counter, lsKey],
   );
 
   const nextProofHash = useCallback(
@@ -40,3 +51,4 @@ export function useNonce() {
 
   return { counter, nextNullifier, nextProofHash };
 }
+

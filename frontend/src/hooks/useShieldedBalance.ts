@@ -94,6 +94,12 @@ export function useShieldedBalance(keys: ElGamalKeys | null) {
   // Kick off async table precomputation as soon as possible.
   useEffect(() => { startBsgsTable(); }, []);
 
+  // Reset balance when keys change (e.g. wallet switch) to prevent stale data.
+  useEffect(() => {
+    setEncryptedBalance({ c1: ZERO, c2: ZERO });
+    setDecryptedBalance(0n);
+  }, [keys?.privateKey]);
+
   // Encrypt an amount (in wei) under the user's public key.
   // Internally encodes as gwei (amount / BALANCE_SCALE) so BSGS can decrypt.
   const encryptAmount = useCallback(
@@ -228,9 +234,9 @@ export function useShieldedBalance(keys: ElGamalKeys | null) {
       const ct: Ciphertext = isZeroCt
         ? { c1: ZERO, c2: ZERO }
         : {
-            c1: Point.fromAffine({ x: c1x, y: c1y }),
-            c2: Point.fromAffine({ x: c2x, y: c2y }),
-          };
+          c1: Point.fromAffine({ x: c1x, y: c1y }),
+          c2: Point.fromAffine({ x: c2x, y: c2y }),
+        };
       setEncryptedBalance(ct);
 
       return new Promise<bigint>((resolve) => {

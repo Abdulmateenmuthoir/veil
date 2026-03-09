@@ -18,7 +18,7 @@ import { LS_TX_HISTORY, LS_TX_HISTORY_POOL, SHIELDED_POOL_ADDRESS } from "@/lib/
 
 export default function Home() {
   const { isConnected, account } = useAccount();
-  const { keys, loading: keysLoading, deriving, deriveError, deriveKeys, clearKeys } = useElGamalKey();
+  const { keys, loading: keysLoading, deriving, deriveError, deriveKeys, clearKeys } = useElGamalKey(account?.address);
   const {
     decryptedBalance,
     loading: balanceLoading,
@@ -28,7 +28,7 @@ export default function Home() {
     syncFromChain,
     updateLocal,
   } = useShieldedBalance(keys);
-  const { nextNullifier, nextProofHash } = useNonce();
+  const { nextNullifier, nextProofHash } = useNonce(account?.address);
   const {
     reRegister,
     registerWithName,

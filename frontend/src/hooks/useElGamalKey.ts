@@ -47,18 +47,36 @@ const DERIVATION_TYPED_DATA = {
   },
 };
 
-export function useElGamalKey() {
+/** Build an address-scoped localStorage key. */
+function scopedKey(base: string, address: string): string {
+  return `${base}_${address}`;
+}
+
+/**
+ * @param accountAddress - The connected wallet address. Keys are scoped per
+ *   address so each wallet gets its own ElGamal keypair in localStorage.
+ */
+export function useElGamalKey(accountAddress?: string) {
   const [keys, setKeys] = useState<ElGamalKeys | null>(null);
   const [loading, setLoading] = useState(true);
   const [deriving, setDeriving] = useState(false);
   const [deriveError, setDeriveError] = useState<string | null>(null);
 
-  // Load cached keys from localStorage on mount.
+  // Load cached keys from localStorage whenever the connected address changes.
   useEffect(() => {
+    setKeys(null);
+    setDeriveError(null);
+
+    if (!accountAddress) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     try {
-      const skStr = localStorage.getItem(LS_ELGAMAL_PRIVATE_KEY);
-      const pkxStr = localStorage.getItem(LS_ELGAMAL_PUBLIC_KEY_X);
-      const pkyStr = localStorage.getItem(LS_ELGAMAL_PUBLIC_KEY_Y);
+      const skStr = localStorage.getItem(scopedKey(LS_ELGAMAL_PRIVATE_KEY, accountAddress));
+      const pkxStr = localStorage.getItem(scopedKey(LS_ELGAMAL_PUBLIC_KEY_X, accountAddress));
+      const pkyStr = localStorage.getItem(scopedKey(LS_ELGAMAL_PUBLIC_KEY_Y, accountAddress));
 
       if (skStr && pkxStr && pkyStr) {
         const privateKey = BigInt(skStr);
@@ -68,12 +86,12 @@ export function useElGamalKey() {
         setKeys({ privateKey, publicKey: { x, y }, publicKeyPoint });
       }
     } catch {
-      localStorage.removeItem(LS_ELGAMAL_PRIVATE_KEY);
-      localStorage.removeItem(LS_ELGAMAL_PUBLIC_KEY_X);
-      localStorage.removeItem(LS_ELGAMAL_PUBLIC_KEY_Y);
+      localStorage.removeItem(scopedKey(LS_ELGAMAL_PRIVATE_KEY, accountAddress));
+      localStorage.removeItem(scopedKey(LS_ELGAMAL_PUBLIC_KEY_X, accountAddress));
+      localStorage.removeItem(scopedKey(LS_ELGAMAL_PUBLIC_KEY_Y, accountAddress));
     }
     setLoading(false);
-  }, []);
+  }, [accountAddress]);
 
   /**
    * Derive a deterministic ElGamal keypair from a one-time wallet signature.
@@ -84,6 +102,7 @@ export function useElGamalKey() {
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const deriveKeys = useCallback(async (account: any) => {
+    if (!accountAddress) throw new Error("No account connected");
     setDeriving(true);
     setDeriveError(null);
     try {
@@ -101,10 +120,10 @@ export function useElGamalKey() {
       const publicKeyPoint = Point.BASE.multiply(sk);
       const aff = publicKeyPoint.toAffine();
 
-      // Cache in localStorage — avoids re-signing on every page load.
-      localStorage.setItem(LS_ELGAMAL_PRIVATE_KEY, sk.toString());
-      localStorage.setItem(LS_ELGAMAL_PUBLIC_KEY_X, aff.x.toString());
-      localStorage.setItem(LS_ELGAMAL_PUBLIC_KEY_Y, aff.y.toString());
+      // Cache in localStorage scoped to this wallet address.
+      localStorage.setItem(scopedKey(LS_ELGAMAL_PRIVATE_KEY, accountAddress), sk.toString());
+      localStorage.setItem(scopedKey(LS_ELGAMAL_PUBLIC_KEY_X, accountAddress), aff.x.toString());
+      localStorage.setItem(scopedKey(LS_ELGAMAL_PUBLIC_KEY_Y, accountAddress), aff.y.toString());
 
       const newKeys: ElGamalKeys = {
         privateKey: sk,
@@ -120,15 +139,17 @@ export function useElGamalKey() {
     } finally {
       setDeriving(false);
     }
-  }, []);
+  }, [accountAddress]);
 
-  // Clear cached keys (e.g. when re-registering).
+  // Clear cached keys for the current address.
   const clearKeys = useCallback(() => {
-    localStorage.removeItem(LS_ELGAMAL_PRIVATE_KEY);
-    localStorage.removeItem(LS_ELGAMAL_PUBLIC_KEY_X);
-    localStorage.removeItem(LS_ELGAMAL_PUBLIC_KEY_Y);
+    if (accountAddress) {
+      localStorage.removeItem(scopedKey(LS_ELGAMAL_PRIVATE_KEY, accountAddress));
+      localStorage.removeItem(scopedKey(LS_ELGAMAL_PUBLIC_KEY_X, accountAddress));
+      localStorage.removeItem(scopedKey(LS_ELGAMAL_PUBLIC_KEY_Y, accountAddress));
+    }
     setKeys(null);
-  }, []);
+  }, [accountAddress]);
 
   return { keys, loading, deriving, deriveError, deriveKeys, clearKeys };
 }
